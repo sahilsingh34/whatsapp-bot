@@ -20,15 +20,17 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ---- Async Engine ----
+# Build the base URL without query params (we pass cache settings via connect_args)
+_base_url = settings.DATABASE_URL.split("?")[0]
+
 engine = create_async_engine(
-    settings.DATABASE_URL.split("?")[0], # Strip params if provided in env
+    _base_url,
     echo=(settings.APP_ENV == "development"),
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10,
+    pool_pre_ping=False,  # Disabled — uses prepared statements which PgBouncer rejects
     connect_args={
         "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0,
     },
 )
 
