@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database.connection import init_db, dispose_db
 from app.database.redis import init_redis, close_redis
-from app.routes import webhook, health, appointments
+from app.routes import webhook, health, appointments, demo
 
 # ---- Logging Setup ----
 settings = get_settings()
@@ -34,8 +34,11 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("✅ Database initialized")
 
-    await init_redis()
-    logger.info("✅ Redis connected")
+    try:
+        await init_redis()
+        logger.info("✅ Redis connected")
+    except Exception as e:
+        logger.error(f"⚠️ Redis connection failed: {e}. Running without Redis cache.")
 
     logger.info("✅ Application ready — listening for WhatsApp messages")
     yield
@@ -71,6 +74,7 @@ app.add_middleware(
 app.include_router(webhook.router)
 app.include_router(health.router)
 app.include_router(appointments.router)
+app.include_router(demo.router)
 
 
 @app.get("/", tags=["root"])

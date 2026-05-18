@@ -11,7 +11,6 @@ from app.services import (
     ai_service,
     memory_service,
     appointment_service,
-    escalation_service,
 )
 from app.utils.time_utils import is_within_working_hours
 
@@ -85,29 +84,14 @@ async def handle_incoming_message(
             logger.info(f"📅 Appointment captured for {phone[:6]}***")
 
         # ---- 8. Check for escalation ----
-        is_escalated = escalation_service.detect_escalation(ai_response)
-        # Backup: also check user message for escalation keywords
-        if not is_escalated:
-            is_escalated = escalation_service.detect_escalation_keywords(text)
-
+        is_escalated = "[ESCALATE]" in ai_response
         if is_escalated:
-            await escalation_service.create_escalation(
-                db=db,
-                user_id=user.id,
-                reason="Patient flagged as urgent/emergency",
-                message_excerpt=text,
-            )
-            await escalation_service.notify_staff(
-                patient_phone=phone,
-                patient_name=user.name,
-                reason="Urgent/Emergency case detected by AI",
-                message_excerpt=text,
-            )
+            # Here you would typically notify staff or create an escalation record in the DB
             logger.warning(f"🚨 Escalation triggered for {phone[:6]}***")
 
         # ---- 9. Clean response (remove internal tags) ----
         clean_response = appointment_service.clean_appointment_tags(ai_response)
-        clean_response = escalation_service.clean_escalation_tags(clean_response)
+        clean_response = clean_response.replace("[ESCALATE]", "").strip()
 
         # ---- 10. Save AI response to memory ----
         await memory_service.save_message(db, user.id, "assistant", clean_response)

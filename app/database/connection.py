@@ -21,11 +21,15 @@ settings = get_settings()
 
 # ---- Async Engine ----
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.DATABASE_URL.split("?")[0], # Strip params if provided in env
     echo=(settings.APP_ENV == "development"),
     pool_size=10,
     max_overflow=20,
     pool_pre_ping=True,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+    },
 )
 
 # ---- Session Factory ----
