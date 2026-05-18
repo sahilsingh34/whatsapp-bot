@@ -5,6 +5,7 @@ Provides session factory and initialization utilities.
 
 import logging
 from typing import AsyncGenerator
+from urllib.parse import urlparse
 
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
 
@@ -21,18 +23,14 @@ settings = get_settings()
 
 # ---- Async Engine ----
 # Supabase uses PgBouncer (transaction mode) which rejects prepared statements.
-# We must disable caching at TWO levels:
-#   1. SQLAlchemy dialect level: ?prepared_statement_cache_size=0 in the URL
-#   2. asyncpg driver level: statement_cache_size=0 in connect_args
+# Solution: NullPool (let PgBouncer handle pooling) + disable ALL prepared statement caches.
 _base_url = settings.DATABASE_URL.split("?")[0]
 _db_url = f"{_base_url}?prepared_statement_cache_size=0"
 
 engine = create_async_engine(
     _db_url,
     echo=(settings.APP_ENV == "development"),
-    pool_size=5,
-    max_overflow=10,
-    pool_pre_ping=False,
+    poolclass=NullPool,  # PgBouncer handles pooling — no SQLAlchemy pool needed
     connect_args={
         "statement_cache_size": 0,
     },
