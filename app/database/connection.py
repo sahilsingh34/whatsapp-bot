@@ -1,12 +1,17 @@
 """
 Async PostgreSQL database connection using SQLAlchemy 2.0.
 Provides session factory and initialization utilities.
+
+IMPORTANT: Supabase uses PgBouncer in transaction mode, which does NOT support
+prepared statements. We use async_creator to create raw asyncpg connections
+with statement_cache_size=0, which is the ONLY bulletproof way to disable
+prepared statements at the driver level.
 """
 
 import logging
 from typing import AsyncGenerator
-from urllib.parse import urlparse
 
+import asyncpg
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -21,19 +26,25 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# ---- Async Engine ----
-# Supabase uses PgBouncer (transaction mode) which rejects prepared statements.
-# Solution: NullPool (let PgBouncer handle pooling) + disable ALL prepared statement caches.
-_base_url = settings.DATABASE_URL.split("?")[0]
-_db_url = f"{_base_url}?prepared_statement_cache_size=0"
+# ---- Parse DATABASE_URL for asyncpg ----
+# SQLAlchemy uses postgresql+asyncpg://, but raw asyncpg needs postgresql://
+_raw_url = settings.DATABASE_URL.split("?")[0].replace("postgresql+asyncpg://", "postgresql://")
 
+
+async def _create_asyncpg_connection():
+    """Create a raw asyncpg connection with statement_cache_size=0."""
+    return await asyncpg.connect(
+        dsn=_raw_url,
+        statement_cache_size=0,
+    )
+
+
+# ---- Async Engine ----
 engine = create_async_engine(
-    _db_url,
+    "postgresql+asyncpg://",  # Dummy URL — async_creator overrides it
+    async_creator=_create_asyncpg_connection,
     echo=(settings.APP_ENV == "development"),
-    poolclass=NullPool,  # PgBouncer handles pooling — no SQLAlchemy pool needed
-    connect_args={
-        "statement_cache_size": 0,
-    },
+    poolclass=NullPool,
 )
 
 # ---- Session Factory ----
