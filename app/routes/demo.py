@@ -153,9 +153,6 @@ CHAT_HTML = """
 </html>
 """
 
-# In-memory store for demo UI (bypasses Redis entirely)
-demo_memory: Dict[str, List[Dict[str, str]]] = {}
-
 class ChatRequest(BaseModel):
     message: str
     phone: str
