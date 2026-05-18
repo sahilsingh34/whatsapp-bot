@@ -41,8 +41,9 @@ async def _create_asyncpg_connection():
 
 # ---- Async Engine ----
 engine = create_async_engine(
-    "postgresql+asyncpg://",  # Dummy URL — async_creator overrides it
-    async_creator=_create_asyncpg_connection,
+    # The URL query param disables SQLAlchemy's OWN dialect-level prepared statement cache
+    "postgresql+asyncpg://localhost/?prepared_statement_cache_size=0",
+    async_creator=_create_asyncpg_connection,  # Our creator disables asyncpg's cache
     echo=(settings.APP_ENV == "development"),
     poolclass=NullPool,
 )
