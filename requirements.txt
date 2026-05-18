@@ -1,0 +1,31 @@
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Async HTTP Client
+httpx==0.28.1
+
+# AI - NVIDIA NIM (OpenAI-compatible SDK)
+openai==1.82.0
+
+# Database - PostgreSQL
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.1
+
+# Redis
+redis[hiredis]==5.2.1
+
+# Configuration
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Timezone
+pytz==2024.2
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+
+# Logging
+python-json-logger==3.2.1
