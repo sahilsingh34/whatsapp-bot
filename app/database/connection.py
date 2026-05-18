@@ -20,15 +20,19 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ---- Async Engine ----
-# Build the base URL without query params (we pass cache settings via connect_args)
+# Supabase uses PgBouncer (transaction mode) which rejects prepared statements.
+# We must disable caching at TWO levels:
+#   1. SQLAlchemy dialect level: ?prepared_statement_cache_size=0 in the URL
+#   2. asyncpg driver level: statement_cache_size=0 in connect_args
 _base_url = settings.DATABASE_URL.split("?")[0]
+_db_url = f"{_base_url}?prepared_statement_cache_size=0"
 
 engine = create_async_engine(
-    _base_url,
+    _db_url,
     echo=(settings.APP_ENV == "development"),
     pool_size=5,
     max_overflow=10,
-    pool_pre_ping=False,  # Disabled — uses prepared statements which PgBouncer rejects
+    pool_pre_ping=False,
     connect_args={
         "statement_cache_size": 0,
     },
