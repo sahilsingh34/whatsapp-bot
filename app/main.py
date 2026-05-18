@@ -34,11 +34,8 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("✅ Database initialized")
 
-    try:
-        await init_redis()
-        logger.info("✅ Redis connected")
-    except Exception as e:
-        logger.error(f"⚠️ Redis connection failed: {e}. Running without Redis cache.")
+    await init_redis()
+    logger.info("✅ Redis connected")
 
     logger.info("✅ Application ready — listening for WhatsApp messages")
     yield

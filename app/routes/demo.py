@@ -166,31 +166,21 @@ async def get_demo_ui():
     return HTMLResponse(content=CHAT_HTML)
 
 @router.post("/api/chat")
-async def process_demo_chat(req: ChatRequest):
-    """Process message bypassing WhatsApp API and Redis."""
+async def process_demo_chat(req: ChatRequest, db: AsyncSession = Depends(get_db)):
+    """Process message bypassing WhatsApp API."""
     try:
-        # Initialize memory for this phone if not exists
-        if req.phone not in demo_memory:
-            demo_memory[req.phone] = []
-            
-        history = demo_memory[req.phone]
+        user = await memory_service.get_or_create_user(db, req.phone, "Demo User")
+        history = await memory_service.get_conversation_history(db, user.id)
+        await memory_service.save_message(db, user.id, "user", req.message)
         
-        # Build conversation
         conversation = history + [{"role": "user", "content": req.message}]
-        
-        # Get AI response
         ai_response = await ai_service.generate_response(conversation)
         
-        # Clean tags
+        # Clean tags to make it look nice in UI
         clean_response = appointment_service.clean_appointment_tags(ai_response)
         clean_response = clean_response.replace("[ESCALATE]", "").strip()
         
-        # Save to local demo memory (last 20 messages)
-        demo_memory[req.phone].append({"role": "user", "content": req.message})
-        demo_memory[req.phone].append({"role": "assistant", "content": clean_response})
-        
-        if len(demo_memory[req.phone]) > 40:
-            demo_memory[req.phone] = demo_memory[req.phone][-40:]
+        await memory_service.save_message(db, user.id, "assistant", clean_response)
         
         return {"response": clean_response}
         
