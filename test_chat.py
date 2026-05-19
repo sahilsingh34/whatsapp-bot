@@ -35,7 +35,7 @@ AI_BASE_URL = os.getenv("AI_BASE_URL", "https://integrate.api.nvidia.com/v1")
 
 if not NVIDIA_API_KEY:
     print("[ERROR] NVIDIA_API_KEY not found in .env file")
-    print("   Make sure your .env file has: NVIDIA_API_KEY=nvapi-...")
+    print("   Make sure your .env file has: NVIDIA_API_KEY=your-nvidia-api-key")
     sys.exit(1)
 
 # ---- Import system prompt ----
