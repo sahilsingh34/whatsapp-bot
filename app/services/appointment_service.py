@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone
 from app.models.appointment import Appointment
 from app.models.user import User
+from app.services import website_api
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,23 @@ async def create_appointment(
         logger.warning(f"Failed to update user's updated_at timestamp: {e}")
         
     await db.flush()
+
+    # Dynamic Website Booking API Sync
+    try:
+        logger.info(f"🔄 Syncing booking to website database for {appointment.patient_name}...")
+        booking_res = await website_api.create_remote_booking(
+            patient_name=details.get("name"),
+            phone=contact_number,
+            date_str=details.get("date"),
+            time_slot=details.get("time"),
+            pain_type=details.get("pain_type")
+        )
+        if booking_res.get("success"):
+            appointment.status = "confirmed"
+            await db.flush()
+            logger.info(f"✅ Website booking auto-confirmed for {appointment.patient_name}!")
+    except Exception as api_err:
+        logger.error(f"❌ Website booking sync failed: {api_err}", exc_info=True)
 
     logger.info(
         f"📅 Appointment created: {appointment.patient_name} — "

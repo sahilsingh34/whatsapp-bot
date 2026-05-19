@@ -103,6 +103,20 @@ async def get_conversations(
             "key_topics": key_topics,
             "thread": thread,
             "updated_at": last_updated_str,
+            "appointments": [
+                {
+                    "id": str(a.id),
+                    "patient_name": a.patient_name,
+                    "pain_type": a.pain_type,
+                    "preferred_date": a.preferred_date,
+                    "preferred_time": a.preferred_time,
+                    "contact_number": a.contact_number,
+                    "status": a.status,
+                    "is_urgent": a.is_urgent,
+                    "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
+                }
+                for a in sorted(user.appointments, key=lambda a: a.created_at, reverse=True)
+            ] if user.appointments else [],
         })
 
     # Total user count
@@ -181,3 +195,44 @@ def _extract_key_topics(user_messages: List[str]) -> List[str]:
             topics.add(topic)
 
     return sorted(list(topics))[:5]  # Max 5 topics
+
+
+from pydantic import BaseModel
+
+class StatusUpdateRequest(BaseModel):
+    status: str
+
+@router.post("/api/appointments/{appt_id}/status")
+async def update_appointment_status(
+    appt_id: str,
+    req: StatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    import uuid
+    try:
+        uid = uuid.UUID(appt_id)
+    except ValueError:
+        return {"success": False, "error": "Invalid appointment ID format"}
+        
+    # Get the appointment
+    appt_query = select(Appointment).where(Appointment.id == uid)
+    result = await db.execute(appt_query)
+    appt = result.scalar_one_or_none()
+    
+    if not appt:
+        return {"success": False, "error": "Appointment not found"}
+        
+    if req.status not in ["pending", "confirmed", "cancelled"]:
+        return {"success": False, "error": "Invalid status value"}
+        
+    appt.status = req.status
+    
+    # Also update the user's updated_at timestamp to force cache invalidation / sync on the frontend
+    user_query = select(User).where(User.id == appt.user_id)
+    user_result = await db.execute(user_query)
+    user = user_result.scalar_one_or_none()
+    if user:
+        user.updated_at = datetime.utcnow()
+        
+    await db.commit()
+    return {"success": True, "status": appt.status}

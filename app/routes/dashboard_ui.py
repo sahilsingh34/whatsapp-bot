@@ -254,6 +254,85 @@ DASHBOARD_HTML = """
 
         .search-box input::placeholder { color: var(--text-muted); }
 
+        .filter-group {
+            display: flex;
+            gap: var(--space-1);
+            background: var(--surface-2);
+            padding: 3px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            margin-left: auto;
+            margin-right: var(--space-3);
+        }
+
+        .filter-btn {
+            font-family: var(--font-sans);
+            font-size: var(--text-xs);
+            font-weight: 500;
+            padding: var(--space-1) var(--space-3);
+            border-radius: 4px;
+            border: none;
+            background: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.12s, color 0.12s;
+        }
+
+        .filter-btn:hover {
+            color: var(--text-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--surface-0);
+            color: var(--text-primary);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* ---- Card Action Buttons ---- */
+        .appt-actions {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-3);
+            justify-content: flex-end;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: var(--space-3);
+        }
+
+        .btn-action {
+            font-family: var(--font-sans);
+            font-size: var(--text-xs);
+            font-weight: 600;
+            padding: var(--space-2) var(--space-4);
+            border-radius: var(--radius-sm);
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+
+        .btn-action.confirm {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: oklch(0.85 0.05 160);
+        }
+
+        .btn-action.confirm:hover {
+            background: var(--accent);
+            color: var(--surface-0);
+            border-color: transparent;
+        }
+
+        .btn-action.cancel {
+            background: oklch(0.95 0.02 25);
+            color: var(--text-secondary);
+            border-color: var(--border);
+        }
+
+        .btn-action.cancel:hover {
+            background: oklch(0.55 0.16 25);
+            color: var(--surface-0);
+            border-color: transparent;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -474,6 +553,201 @@ DASHBOARD_HTML = """
             color: var(--text-muted);
         }
 
+        /* ---- Detail Tabs ---- */
+        .detail-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-subtle);
+            background: var(--surface-1);
+            flex-shrink: 0;
+        }
+
+        .detail-tab {
+            flex: 1;
+            padding: var(--space-3) var(--space-4);
+            font-family: var(--font-sans);
+            font-size: var(--text-sm);
+            font-weight: 500;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: center;
+            border-bottom: 2px solid transparent;
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .detail-tab:hover { color: var(--text-primary); }
+
+        .detail-tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        .detail-tab .tab-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            margin-left: 4px;
+            border-radius: 999px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            vertical-align: middle;
+        }
+
+        /* ---- Appointment Cards ---- */
+        .appt-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding: var(--space-4) var(--space-6);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+            background: var(--surface-0);
+        }
+
+        .appt-card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: var(--space-4) var(--space-5);
+        }
+
+        .appt-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-3);
+        }
+
+        .appt-card-title {
+            font-size: var(--text-base);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .appt-card-date {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .appt-row {
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-3);
+            padding: var(--space-2) 0;
+        }
+
+        .appt-row + .appt-row {
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .appt-label {
+            font-size: var(--text-xs);
+            font-weight: 500;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            min-width: 80px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        .appt-value {
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            font-weight: 400;
+        }
+
+        .appt-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: var(--text-xs);
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            letter-spacing: 0.02em;
+            text-transform: capitalize;
+        }
+
+        .appt-status-pill.pending {
+            background: oklch(0.94 0.04 65);
+            color: oklch(0.50 0.14 65);
+        }
+
+        .appt-status-pill.confirmed {
+            background: oklch(0.92 0.04 145);
+            color: oklch(0.40 0.12 145);
+        }
+
+        .appt-status-pill.cancelled {
+            background: oklch(0.94 0.03 25);
+            color: oklch(0.50 0.14 25);
+        }
+
+        .appt-status-pill::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .appt-urgent {
+            font-size: var(--text-xs);
+            font-weight: 600;
+            color: oklch(0.55 0.18 25);
+            background: oklch(0.94 0.04 25);
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: var(--space-2);
+        }
+
+        .appt-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            gap: var(--space-3);
+            color: var(--text-muted);
+            font-size: var(--text-sm);
+        }
+
+        .appt-empty-icon {
+            font-size: 2rem;
+            opacity: 0.5;
+        }
+
+        /* ---- Quick Info Bar (in detail header) ---- */
+        .detail-quick-info {
+            display: flex;
+            gap: var(--space-2);
+            margin-top: var(--space-2);
+            flex-wrap: wrap;
+        }
+
+        .quick-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: var(--text-xs);
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: var(--surface-2);
+            color: var(--text-secondary);
+        }
+
+        .quick-chip.has-appt {
+            background: var(--accent-dim);
+            color: var(--accent);
+        }
+
+
         /* ---- Responsive ---- */
         @media (max-width: 900px) {
             .app {
@@ -548,6 +822,11 @@ DASHBOARD_HTML = """
             <div class="table-area">
                 <div class="table-header">
                     <h2>Customer Conversations</h2>
+                    <div class="filter-group">
+                        <button class="filter-btn active" id="filterAll" onclick="setFilter('all')">All</button>
+                        <button class="filter-btn" id="filterPending" onclick="setFilter('pending')">Pending Appts</button>
+                        <button class="filter-btn" id="filterConfirmed" onclick="setFilter('confirmed')">Confirmed</button>
+                    </div>
                     <div class="search-box">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.26 4.26a.75.75 0 11-1.06 1.06l-4.26-4.26A7 7 0 012 9z" clip-rule="evenodd"/></svg>
                         <input type="text" id="searchInput" placeholder="Search by name or phone...">
@@ -571,6 +850,7 @@ DASHBOARD_HTML = """
         let allConversations = [];
         let activeRow = null;
         let selectedUserId = null;
+        let activeFilter = 'all';
 
         // ---- Load Stats ----
         async function loadStats() {
@@ -595,7 +875,7 @@ DASHBOARD_HTML = """
                 if (cached) {
                     allConversations = JSON.parse(cached);
                     sortConversations();
-                    renderTable(allConversations);
+                    renderTable();
                 }
             } catch (e) {
                 console.error('Failed to load from localStorage cache:', e);
@@ -650,7 +930,7 @@ DASHBOARD_HTML = """
                     }
 
                     // Render table with the newly merged data
-                    renderTable(allConversations);
+                    renderTable();
 
                     // If a conversation is selected, update its details pane in real-time
                     if (selectedUserId) {
@@ -688,11 +968,30 @@ DASHBOARD_HTML = """
             }
         }
 
-        // ---- Render Table ----
-        function renderTable(conversations) {
-            if (conversations.length === 0) {
+        // ---- Apply Filters and Render ----
+        function renderTable() {
+            const q = (document.getElementById('searchInput').value || '').toLowerCase();
+            
+            // Filter by active status button
+            let filtered = allConversations;
+            if (activeFilter === 'pending') {
+                filtered = allConversations.filter(c => c.appointment_status === 'pending');
+            } else if (activeFilter === 'confirmed') {
+                filtered = allConversations.filter(c => c.appointment_status === 'confirmed');
+            }
+            
+            // Filter by search query
+            if (q) {
+                filtered = filtered.filter(c =>
+                    (c.name || '').toLowerCase().includes(q) ||
+                    (c.patient_name || '').toLowerCase().includes(q) ||
+                    (c.phone || '').toLowerCase().includes(q)
+                );
+            }
+
+            if (filtered.length === 0) {
                 document.getElementById('tableContainer').innerHTML =
-                    '<div class="empty-state">No conversations found</div>';
+                    '<div class="empty-state">No conversations match the filters</div>';
                 return;
             }
 
@@ -706,7 +1005,7 @@ DASHBOARD_HTML = """
                     <th>Last Active</th>
                 </tr></thead><tbody>`;
 
-            conversations.forEach((conv, i) => {
+            filtered.forEach((conv) => {
                 const statusClass = conv.appointment_status || 'none';
                 const statusLabel = conv.appointment_status === 'none' ? 'No Appt' :
                     conv.appointment_status.charAt(0).toUpperCase() + conv.appointment_status.slice(1);
@@ -716,7 +1015,7 @@ DASHBOARD_HTML = """
 
                 const isActive = selectedUserId === conv.user_id ? 'active' : '';
 
-                html += `<tr data-index="${i}" data-id="${conv.user_id}" class="${isActive}" onclick="selectRow(${i}, this)">
+                html += `<tr data-id="${conv.user_id}" class="${isActive}" onclick="selectRowById('${conv.user_id}')">
                     <td class="name-cell">${escHtml(conv.patient_name || conv.name)}</td>
                     <td class="phone-cell">${escHtml(conv.phone)}</td>
                     <td class="count-cell">${conv.message_count}</td>
@@ -730,7 +1029,30 @@ DASHBOARD_HTML = """
             document.getElementById('tableContainer').innerHTML = html;
         }
 
+        // ---- Set Filter ----
+        function setFilter(filter) {
+            activeFilter = filter;
+            
+            // Update active states of filter buttons
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            if (filter === 'all') document.getElementById('filterAll').classList.add('active');
+            if (filter === 'pending') document.getElementById('filterPending').classList.add('active');
+            if (filter === 'confirmed') document.getElementById('filterConfirmed').classList.add('active');
+            
+            renderTable();
+        }
+
+        // ---- Select Row By ID ----
+        function selectRowById(userId, updateSelection = true) {
+            const index = allConversations.findIndex(c => c.user_id === userId);
+            if (index !== -1) {
+                selectRow(index, null, updateSelection);
+            }
+        }
+
         // ---- Select Row ----
+        let currentTab = 'chat';
+
         function selectRow(index, rowEl, updateSelection = true) {
             const conv = allConversations[index];
             if (!conv) return;
@@ -752,49 +1074,174 @@ DASHBOARD_HTML = """
                 activeRow = rowEl;
             }
 
+            const apptCount = (conv.appointments || []).length;
+            const painType = conv.pain_type || '—';
+            const hasAppt = apptCount > 0;
+
+            // Build header
             let detailHtml = `
                 <div class="detail-header">
                     <h3>${escHtml(conv.patient_name || conv.name)}</h3>
                     <div class="detail-meta">${escHtml(conv.phone)} &middot; ${conv.message_count} messages</div>
+                    <div class="detail-quick-info">
+                        <span class="quick-chip">${escHtml(painType)}</span>
+                        ${hasAppt ? `<span class="quick-chip has-appt">📅 ${apptCount} appointment${apptCount > 1 ? 's' : ''}</span>` : '<span class="quick-chip">No appointments</span>'}
+                    </div>
                 </div>
-                <div class="thread">`;
+                <div class="detail-tabs">
+                    <button class="detail-tab ${currentTab === 'chat' ? 'active' : ''}" onclick="switchTab('chat')">
+                        💬 Chat
+                    </button>
+                    <button class="detail-tab ${currentTab === 'appt' ? 'active' : ''}" onclick="switchTab('appt')">
+                        📋 Appointments ${hasAppt ? '<span class="tab-badge">' + apptCount + '</span>' : ''}
+                    </button>
+                </div>`;
 
-            if (conv.thread && conv.thread.length > 0) {
-                conv.thread.forEach(msg => {
-                    if (!msg.message) return;
-                    detailHtml += `
-                        <div class="thread-msg ${msg.role}">
-                            ${escHtml(msg.message)}
-                            <div class="thread-time">${msg.time}</div>
-                        </div>`;
-                });
+            if (currentTab === 'chat') {
+                detailHtml += '<div class="thread">';
+                if (conv.thread && conv.thread.length > 0) {
+                    conv.thread.forEach(msg => {
+                        if (!msg.message) return;
+                        detailHtml += `
+                            <div class="thread-msg ${msg.role}">
+                                ${escHtml(msg.message)}
+                                <div class="thread-time">${msg.time}</div>
+                            </div>`;
+                    });
+                } else {
+                    detailHtml += '<div class="detail-empty">No messages</div>';
+                }
+                detailHtml += '</div>';
             } else {
-                detailHtml += '<div class="detail-empty">No messages</div>';
+                // Appointments tab
+                detailHtml += '<div class="appt-list">';
+                if (conv.appointments && conv.appointments.length > 0) {
+                    conv.appointments.forEach((appt, i) => {
+                        const isPending = appt.status === 'pending';
+                        
+                        detailHtml += `
+                            <div class="appt-card">
+                                <div class="appt-card-header">
+                                    <span class="appt-card-title">${escHtml(appt.patient_name || 'Patient')}</span>
+                                    <span class="appt-status-pill ${appt.status}">${appt.status}${appt.is_urgent ? '<span class="appt-urgent">URGENT</span>' : ''}</span>
+                                </div>
+                                <div class="appt-row">
+                                    <span class="appt-label">Issue</span>
+                                    <span class="appt-value">${escHtml(appt.pain_type || '—')}</span>
+                                </div>
+                                <div class="appt-row">
+                                    <span class="appt-label">Date</span>
+                                    <span class="appt-value">${escHtml(appt.preferred_date || '—')}</span>
+                                </div>
+                                <div class="appt-row">
+                                    <span class="appt-label">Time</span>
+                                    <span class="appt-value">${escHtml(appt.preferred_time || '—')}</span>
+                                </div>
+                                <div class="appt-row">
+                                    <span class="appt-label">Contact</span>
+                                    <span class="appt-value">${escHtml(appt.contact_number || conv.phone || '—')}</span>
+                                </div>
+                                <div class="appt-row">
+                                    <span class="appt-label">Booked</span>
+                                    <span class="appt-value">${escHtml(appt.created_at || '—')}</span>
+                                </div>
+                                ${isPending ? `
+                                <div class="appt-actions" id="actions-${appt.id}">
+                                    <button class="btn-action cancel" onclick="updateAppointmentStatus('${appt.id}', 'cancelled')">Cancel</button>
+                                    <button class="btn-action confirm" onclick="updateAppointmentStatus('${appt.id}', 'confirmed')">Confirm</button>
+                                </div>` : ''}
+                            </div>`;
+                    });
+                } else {
+                    detailHtml += `
+                        <div class="appt-empty">
+                            <span class="appt-empty-icon">📋</span>
+                            <span>No appointments booked yet</span>
+                        </div>`;
+                }
+                detailHtml += '</div>';
             }
 
-            detailHtml += '</div>';
             document.getElementById('detailContent').innerHTML = detailHtml;
 
-            // Scroll thread to bottom
-            const threadEl = document.querySelector('.thread');
-            if (threadEl) {
-                threadEl.scrollTop = threadEl.scrollHeight;
+            // Scroll thread to bottom if on chat tab
+            if (currentTab === 'chat') {
+                const threadEl = document.querySelector('.thread');
+                if (threadEl) {
+                    threadEl.scrollTop = threadEl.scrollHeight;
+                }
+            }
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            if (selectedUserId) {
+                const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
+                if (idx !== -1) selectRow(idx, null, false);
+            }
+        }
+
+        // ---- Update Appointment Status ----
+        async function updateAppointmentStatus(apptId, newStatus) {
+            const container = document.getElementById(`actions-${apptId}`);
+            if (container) {
+                container.innerHTML = '<span style="font-size: var(--text-xs); color: var(--text-muted); padding: 4px 0;"><div class="spinner" style="display:inline-block; vertical-align:middle; width:12px; height:12px; margin-right:6px;"></div>Updating status...</span>';
+            }
+
+            try {
+                const res = await fetch(`/dashboard/api/appointments/${apptId}/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Update locally in allConversations array for instant response
+                    allConversations.forEach(c => {
+                        if (c.appointments) {
+                            c.appointments.forEach(a => {
+                                if (a.id === apptId) {
+                                    a.status = newStatus;
+                                    // Update the overall conversation's appointment status
+                                    c.appointment_status = newStatus;
+                                }
+                            });
+                        }
+                    });
+
+                    // Save to cache
+                    localStorage.setItem('mpc_conversations', JSON.stringify(allConversations));
+                    
+                    // Force refresh active layout and list
+                    renderTable();
+                    if (selectedUserId) {
+                        const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
+                        if (idx !== -1) selectRow(idx, null, false);
+                    }
+                    
+                    // Reload statistics strip
+                    await loadStats();
+                } else {
+                    alert('Failed to update status: ' + (data.error || 'Unknown error'));
+                    if (selectedUserId) {
+                        const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
+                        if (idx !== -1) selectRow(idx, null, false);
+                    }
+                }
+            } catch (e) {
+                console.error('Status update failed:', e);
+                alert('Connection error occurred while updating status.');
+                if (selectedUserId) {
+                    const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
+                    if (idx !== -1) selectRow(idx, null, false);
+                }
             }
         }
 
         // ---- Search ----
         document.getElementById('searchInput').addEventListener('input', function() {
-            const q = this.value.toLowerCase();
-            if (!q) {
-                renderTable(allConversations);
-                return;
-            }
-            const filtered = allConversations.filter(c =>
-                (c.name || '').toLowerCase().includes(q) ||
-                (c.patient_name || '').toLowerCase().includes(q) ||
-                (c.phone || '').toLowerCase().includes(q)
-            );
-            renderTable(filtered);
+            renderTable();
         });
 
         // ---- Helpers ----
