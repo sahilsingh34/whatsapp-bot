@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database.connection import init_db, dispose_db
 from app.database.redis import init_redis, close_redis
-from app.routes import webhook, health, appointments, demo
+from app.routes import webhook, health, appointments, demo, insights, dashboard, dashboard_ui
 
 # ---- Logging Setup ----
 settings = get_settings()
@@ -72,6 +72,9 @@ app.include_router(webhook.router)
 app.include_router(health.router)
 app.include_router(appointments.router)
 app.include_router(demo.router)
+app.include_router(insights.router)
+app.include_router(dashboard.router)
+app.include_router(dashboard_ui.router)
 
 
 @app.get("/", tags=["root"])

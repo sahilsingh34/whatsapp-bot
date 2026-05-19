@@ -85,6 +85,15 @@ async def save_message(
         message=message,
     )
     db.add(conversation)
+    
+    # Update user's updated_at timestamp
+    try:
+        user = await db.get(User, user_id)
+        if user:
+            user.updated_at = datetime.now(timezone.utc)
+    except Exception as e:
+        logger.warning(f"Failed to update user's updated_at timestamp: {e}")
+        
     await db.flush()
 
     # Invalidate Redis cache for this user

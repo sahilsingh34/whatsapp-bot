@@ -12,7 +12,9 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from datetime import datetime, timezone
 from app.models.appointment import Appointment
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +97,15 @@ async def create_appointment(
         status="pending",
     )
     db.add(appointment)
+    
+    # Update user's updated_at timestamp
+    try:
+        user = await db.get(User, user_id)
+        if user:
+            user.updated_at = datetime.now(timezone.utc)
+    except Exception as e:
+        logger.warning(f"Failed to update user's updated_at timestamp: {e}")
+        
     await db.flush()
 
     logger.info(
@@ -142,6 +153,15 @@ async def update_appointment_status(
 
     if appointment:
         appointment.status = new_status
+        
+        # Update user's updated_at timestamp
+        try:
+            user = await db.get(User, appointment.user_id)
+            if user:
+                user.updated_at = datetime.now(timezone.utc)
+        except Exception as e:
+            logger.warning(f"Failed to update user's updated_at timestamp: {e}")
+            
         await db.flush()
         logger.info(f"Appointment {appointment_id} updated to {new_status}")
 

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from fastapi import APIRouter, Depends
 from fastapi.responses import HTMLResponse
@@ -6,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.connection import get_db
 from app.services import ai_service, memory_service, appointment_service
+from app.services import learning_service
 
 router = APIRouter(prefix="/demo", tags=["demo"])
 logger = logging.getLogger(__name__)
@@ -171,16 +173,60 @@ async def process_demo_chat(req: ChatRequest, db: AsyncSession = Depends(get_db)
         await memory_service.save_message(db, user.id, "user", req.message)
         
         conversation = history + [{"role": "user", "content": req.message}]
-        ai_response = await ai_service.generate_response(conversation)
+        ai_response = await ai_service.generate_response(conversation, db=db)
         
+        # Check for appointment data
+        appointment_data = appointment_service.parse_appointment_from_response(ai_response)
+        if appointment_data:
+            await appointment_service.create_appointment(
+                db=db,
+                user_id=user.id,
+                details=appointment_data,
+                contact_number=req.phone,
+            )
+            logger.info(f"📅 Appointment captured from Demo UI for {req.phone}")
+            
         # Clean tags to make it look nice in UI
         clean_response = appointment_service.clean_appointment_tags(ai_response)
         clean_response = clean_response.replace("[ESCALATE]", "").strip()
         
+        # Handle empty/blank responses gracefully
+        if not clean_response:
+            if appointment_data:
+                clean_response = (
+                    f"Thank you, {appointment_data.get('name', 'there')}! I have registered your appointment details "
+                    f"for {appointment_data.get('pain_type', 'treatment')} on {appointment_data.get('date', 'your requested date')} "
+                    f"at {appointment_data.get('time', 'your requested time')}. Our team will review this and contact "
+                    f"you shortly to confirm. 🙏"
+                )
+            else:
+                clean_response = (
+                    "Thank you! How can I help you today? If you have questions about "
+                    "our treatments or want to book a consultation, just let me know. 🙏"
+                )
+        
         await memory_service.save_message(db, user.id, "assistant", clean_response)
+        
+        # Fire background learning analysis
+        asyncio.create_task(
+            _demo_background_learn(user.id),
+            name=f"demo-learn-{str(user.id)[:8]}",
+        )
         
         return {"response": clean_response}
         
     except Exception as e:
         logger.error(f"Demo chat error: {e}")
         return {"response": "System error. Try again."}
+
+
+async def _demo_background_learn(user_id) -> None:
+    """Background learning task for demo conversations."""
+    try:
+        from app.database.connection import async_session_factory
+
+        async with async_session_factory() as db:
+            await learning_service.analyze_conversation(db, user_id)
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"\U0001f9e0 Demo background learning failed (non-blocking): {e}")

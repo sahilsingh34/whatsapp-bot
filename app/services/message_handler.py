@@ -3,6 +3,7 @@ Message Handler — main orchestrator for incoming WhatsApp messages.
 Ties together all services into a cohesive message processing pipeline.
 """
 
+import asyncio
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +13,7 @@ from app.services import (
     memory_service,
     appointment_service,
 )
+from app.services import learning_service
 from app.utils.time_utils import is_within_working_hours
 
 logger = logging.getLogger(__name__)
@@ -69,8 +71,8 @@ async def handle_incoming_message(
         # ---- 5. Build conversation for AI ----
         conversation = history + [{"role": "user", "content": text}]
 
-        # ---- 6. Generate AI response ----
-        ai_response = await ai_service.generate_response(conversation)
+        # ---- 6. Generate AI response (with dynamic prompt enrichment) ----
+        ai_response = await ai_service.generate_response(conversation, db=db)
 
         # ---- 7. Check for appointment data ----
         appointment_data = appointment_service.parse_appointment_from_response(ai_response)
@@ -93,6 +95,21 @@ async def handle_incoming_message(
         clean_response = appointment_service.clean_appointment_tags(ai_response)
         clean_response = clean_response.replace("[ESCALATE]", "").strip()
 
+        # Handle empty/blank responses gracefully (e.g. when AI only returns JSON tag)
+        if not clean_response:
+            if appointment_data:
+                clean_response = (
+                    f"Thank you, {appointment_data.get('name', 'there')}! I have registered your appointment details "
+                    f"for {appointment_data.get('pain_type', 'treatment')} on {appointment_data.get('date', 'your requested date')} "
+                    f"at {appointment_data.get('time', 'your requested time')}. Our team will review this and contact "
+                    f"you shortly to confirm. 🙏"
+                )
+            else:
+                clean_response = (
+                    "Thank you! How can I help you today? If you have questions about "
+                    "our treatments or want to book a consultation, just let me know. 🙏"
+                )
+
         # ---- 10. Save AI response to memory ----
         await memory_service.save_message(db, user.id, "assistant", clean_response)
 
@@ -103,6 +120,12 @@ async def handle_incoming_message(
         await whatsapp_service.mark_as_read(message_id)
 
         logger.info(f"✅ Response sent to {phone[:6]}***")
+
+        # ---- 13. Background: analyze conversation for self-learning ----
+        asyncio.create_task(
+            _background_learn(user.id),
+            name=f"learn-{str(user.id)[:8]}",
+        )
 
     except Exception as e:
         logger.error(f"❌ Error handling message from {phone}: {e}", exc_info=True)
@@ -116,3 +139,18 @@ async def handle_incoming_message(
             )
         except Exception:
             logger.error("Failed to send error fallback message")
+
+
+async def _background_learn(user_id) -> None:
+    """
+    Background task: analyze conversation for self-learning.
+    Uses its own database session so it doesn't block the response flow.
+    """
+    try:
+        from app.database.connection import async_session_factory
+
+        async with async_session_factory() as db:
+            await learning_service.analyze_conversation(db, user_id)
+            await db.commit()
+    except Exception as e:
+        logger.warning(f"🧠 Background learning failed (non-blocking): {e}")

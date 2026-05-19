@@ -26,26 +26,19 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-# ---- Parse DATABASE_URL for asyncpg ----
-# SQLAlchemy uses postgresql+asyncpg://, but raw asyncpg needs postgresql://
-_raw_url = settings.DATABASE_URL.split("?")[0].replace("postgresql+asyncpg://", "postgresql://")
-
-
-async def _create_asyncpg_connection():
-    """Create a raw asyncpg connection with statement_cache_size=0."""
-    return await asyncpg.connect(
-        dsn=_raw_url,
-        statement_cache_size=0,
-    )
-
+import uuid
 
 # ---- Async Engine ----
 engine = create_async_engine(
-    # The URL query param disables SQLAlchemy's OWN dialect-level prepared statement cache
-    "postgresql+asyncpg://localhost/?prepared_statement_cache_size=0",
-    async_creator=_create_asyncpg_connection,  # Our creator disables asyncpg's cache
-    echo=(settings.APP_ENV == "development"),
-    poolclass=NullPool,
+    settings.DATABASE_URL,
+    connect_args={
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
+    },
+    echo=False,  # Disabled: Windows cp1252 console crashes on Unicode (emojis/arrows in learned insights)
+    pool_size=3,
+    max_overflow=2,
 )
 
 # ---- Session Factory ----
@@ -83,7 +76,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     """Create all database tables on startup."""
     # Import models so they are registered with Base.metadata
-    from app.models import user, conversation, appointment, escalation  # noqa: F401
+    from app.models import user, conversation, appointment, escalation, learned_insight  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
