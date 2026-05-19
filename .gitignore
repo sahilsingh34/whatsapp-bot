@@ -37,3 +37,13 @@ desktop.ini
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local Python installation folders
+Lib/
+Include/
+Scripts/
+pyvenv.cfg
+
+# Local databases & test scripts
+mpc.db
+test_connections.py
