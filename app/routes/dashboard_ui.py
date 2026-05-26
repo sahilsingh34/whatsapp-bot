@@ -793,7 +793,7 @@ DASHBOARD_HTML = """
         </div>
 
         <!-- Stats Strip -->
-        <div class="stats-strip" id="statsStrip">
+        <div class="stats-strip">
             <div class="stat-cell">
                 <div class="stat-label">Customers</div>
                 <div class="stat-value accent" id="statCustomers">—</div>
@@ -803,14 +803,6 @@ DASHBOARD_HTML = """
                 <div class="stat-value" id="statMessages">—</div>
             </div>
             <div class="stat-cell">
-                <div class="stat-label">Appointments</div>
-                <div class="stat-value info" id="statAppointments">—</div>
-            </div>
-            <div class="stat-cell">
-                <div class="stat-label">Pending</div>
-                <div class="stat-value warn" id="statPending">—</div>
-            </div>
-            <div class="stat-cell">
                 <div class="stat-label">Avg Msgs/Customer</div>
                 <div class="stat-value" id="statAvg">—</div>
             </div>
@@ -818,16 +810,10 @@ DASHBOARD_HTML = """
 
         <!-- Main Content -->
         <div class="main">
-            <!-- Table Area -->
             <div class="table-area">
                 <div class="table-header">
                     <h2>Customer Conversations</h2>
-                    <div class="filter-group">
-                        <button class="filter-btn active" id="filterAll" onclick="setFilter('all')">All</button>
-                        <button class="filter-btn" id="filterPending" onclick="setFilter('pending')">Pending Appts</button>
-                        <button class="filter-btn" id="filterConfirmed" onclick="setFilter('confirmed')">Confirmed</button>
-                    </div>
-                    <div class="search-box">
+                    <div class="search-box" style="margin-left: auto;">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.45 4.39l4.26 4.26a.75.75 0 11-1.06 1.06l-4.26-4.26A7 7 0 012 9z" clip-rule="evenodd"/></svg>
                         <input type="text" id="searchInput" placeholder="Search by name or phone...">
                     </div>
@@ -850,7 +836,6 @@ DASHBOARD_HTML = """
         let allConversations = [];
         let activeRow = null;
         let selectedUserId = null;
-        let activeFilter = 'all';
 
         // ---- Load Stats ----
         async function loadStats() {
@@ -859,8 +844,6 @@ DASHBOARD_HTML = """
                 const data = await res.json();
                 document.getElementById('statCustomers').textContent = data.total_customers;
                 document.getElementById('statMessages').textContent = data.total_messages;
-                document.getElementById('statAppointments').textContent = data.total_appointments;
-                document.getElementById('statPending').textContent = data.pending_appointments;
                 document.getElementById('statAvg').textContent = data.avg_messages_per_customer;
             } catch (e) {
                 console.error('Stats load failed:', e);
@@ -972,13 +955,7 @@ DASHBOARD_HTML = """
         function renderTable() {
             const q = (document.getElementById('searchInput').value || '').toLowerCase();
             
-            // Filter by active status button
             let filtered = allConversations;
-            if (activeFilter === 'pending') {
-                filtered = allConversations.filter(c => c.appointment_status === 'pending');
-            } else if (activeFilter === 'confirmed') {
-                filtered = allConversations.filter(c => c.appointment_status === 'confirmed');
-            }
             
             // Filter by search query
             if (q) {
@@ -991,7 +968,7 @@ DASHBOARD_HTML = """
 
             if (filtered.length === 0) {
                 document.getElementById('tableContainer').innerHTML =
-                    '<div class="empty-state">No conversations match the filters</div>';
+                    '<div class="empty-state">No conversations match the search query</div>';
                 return;
             }
 
@@ -1000,16 +977,11 @@ DASHBOARD_HTML = """
                     <th>Customer</th>
                     <th>Phone</th>
                     <th>Messages</th>
-                    <th>Status</th>
                     <th>Topics</th>
                     <th>Last Active</th>
                 </tr></thead><tbody>`;
 
             filtered.forEach((conv) => {
-                const statusClass = conv.appointment_status || 'none';
-                const statusLabel = conv.appointment_status === 'none' ? 'No Appt' :
-                    conv.appointment_status.charAt(0).toUpperCase() + conv.appointment_status.slice(1);
-
                 const topics = (conv.key_topics || [])
                     .map(t => `<span class="topic-tag">${t}</span>`).join('');
 
@@ -1019,7 +991,6 @@ DASHBOARD_HTML = """
                     <td class="name-cell">${escHtml(conv.patient_name || conv.name)}</td>
                     <td class="phone-cell">${escHtml(conv.phone)}</td>
                     <td class="count-cell">${conv.message_count}</td>
-                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                     <td class="topics-cell">${topics || '<span style="color:var(--text-muted)">—</span>'}</td>
                     <td style="color:var(--text-secondary)">${conv.last_activity}</td>
                 </tr>`;
@@ -1027,19 +998,6 @@ DASHBOARD_HTML = """
 
             html += '</tbody></table>';
             document.getElementById('tableContainer').innerHTML = html;
-        }
-
-        // ---- Set Filter ----
-        function setFilter(filter) {
-            activeFilter = filter;
-            
-            // Update active states of filter buttons
-            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-            if (filter === 'all') document.getElementById('filterAll').classList.add('active');
-            if (filter === 'pending') document.getElementById('filterPending').classList.add('active');
-            if (filter === 'confirmed') document.getElementById('filterConfirmed').classList.add('active');
-            
-            renderTable();
         }
 
         // ---- Select Row By ID ----
@@ -1051,8 +1009,6 @@ DASHBOARD_HTML = """
         }
 
         // ---- Select Row ----
-        let currentTab = 'chat';
-
         function selectRow(index, rowEl, updateSelection = true) {
             const conv = allConversations[index];
             if (!conv) return;
@@ -1074,9 +1030,7 @@ DASHBOARD_HTML = """
                 activeRow = rowEl;
             }
 
-            const apptCount = (conv.appointments || []).length;
             const painType = conv.pain_type || '—';
-            const hasAppt = apptCount > 0;
 
             // Build header
             let detailHtml = `
@@ -1085,157 +1039,31 @@ DASHBOARD_HTML = """
                     <div class="detail-meta">${escHtml(conv.phone)} &middot; ${conv.message_count} messages</div>
                     <div class="detail-quick-info">
                         <span class="quick-chip">${escHtml(painType)}</span>
-                        ${hasAppt ? `<span class="quick-chip has-appt">📅 ${apptCount} appointment${apptCount > 1 ? 's' : ''}</span>` : '<span class="quick-chip">No appointments</span>'}
                     </div>
-                </div>
-                <div class="detail-tabs">
-                    <button class="detail-tab ${currentTab === 'chat' ? 'active' : ''}" onclick="switchTab('chat')">
-                        💬 Chat
-                    </button>
-                    <button class="detail-tab ${currentTab === 'appt' ? 'active' : ''}" onclick="switchTab('appt')">
-                        📋 Appointments ${hasAppt ? '<span class="tab-badge">' + apptCount + '</span>' : ''}
-                    </button>
                 </div>`;
 
-            if (currentTab === 'chat') {
-                detailHtml += '<div class="thread">';
-                if (conv.thread && conv.thread.length > 0) {
-                    conv.thread.forEach(msg => {
-                        if (!msg.message) return;
-                        detailHtml += `
-                            <div class="thread-msg ${msg.role}">
-                                ${escHtml(msg.message)}
-                                <div class="thread-time">${msg.time}</div>
-                            </div>`;
-                    });
-                } else {
-                    detailHtml += '<div class="detail-empty">No messages</div>';
-                }
-                detailHtml += '</div>';
-            } else {
-                // Appointments tab
-                detailHtml += '<div class="appt-list">';
-                if (conv.appointments && conv.appointments.length > 0) {
-                    conv.appointments.forEach((appt, i) => {
-                        const isPending = appt.status === 'pending';
-                        
-                        detailHtml += `
-                            <div class="appt-card">
-                                <div class="appt-card-header">
-                                    <span class="appt-card-title">${escHtml(appt.patient_name || 'Patient')}</span>
-                                    <span class="appt-status-pill ${appt.status}">${appt.status}${appt.is_urgent ? '<span class="appt-urgent">URGENT</span>' : ''}</span>
-                                </div>
-                                <div class="appt-row">
-                                    <span class="appt-label">Issue</span>
-                                    <span class="appt-value">${escHtml(appt.pain_type || '—')}</span>
-                                </div>
-                                <div class="appt-row">
-                                    <span class="appt-label">Date</span>
-                                    <span class="appt-value">${escHtml(appt.preferred_date || '—')}</span>
-                                </div>
-                                <div class="appt-row">
-                                    <span class="appt-label">Time</span>
-                                    <span class="appt-value">${escHtml(appt.preferred_time || '—')}</span>
-                                </div>
-                                <div class="appt-row">
-                                    <span class="appt-label">Contact</span>
-                                    <span class="appt-value">${escHtml(appt.contact_number || conv.phone || '—')}</span>
-                                </div>
-                                <div class="appt-row">
-                                    <span class="appt-label">Booked</span>
-                                    <span class="appt-value">${escHtml(appt.created_at || '—')}</span>
-                                </div>
-                                ${isPending ? `
-                                <div class="appt-actions" id="actions-${appt.id}">
-                                    <button class="btn-action cancel" onclick="updateAppointmentStatus('${appt.id}', 'cancelled')">Cancel</button>
-                                    <button class="btn-action confirm" onclick="updateAppointmentStatus('${appt.id}', 'confirmed')">Confirm</button>
-                                </div>` : ''}
-                            </div>`;
-                    });
-                } else {
+            // Render chat thread directly
+            detailHtml += '<div class="thread">';
+            if (conv.thread && conv.thread.length > 0) {
+                conv.thread.forEach(msg => {
+                    if (!msg.message) return;
                     detailHtml += `
-                        <div class="appt-empty">
-                            <span class="appt-empty-icon">📋</span>
-                            <span>No appointments booked yet</span>
+                        <div class="thread-msg ${msg.role}">
+                            ${escHtml(msg.message)}
+                            <div class="thread-time">${msg.time}</div>
                         </div>`;
-                }
-                detailHtml += '</div>';
+                });
+            } else {
+                detailHtml += '<div class="detail-empty">No messages</div>';
             }
+            detailHtml += '</div>';
 
             document.getElementById('detailContent').innerHTML = detailHtml;
 
-            // Scroll thread to bottom if on chat tab
-            if (currentTab === 'chat') {
-                const threadEl = document.querySelector('.thread');
-                if (threadEl) {
-                    threadEl.scrollTop = threadEl.scrollHeight;
-                }
-            }
-        }
-
-        function switchTab(tab) {
-            currentTab = tab;
-            if (selectedUserId) {
-                const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
-                if (idx !== -1) selectRow(idx, null, false);
-            }
-        }
-
-        // ---- Update Appointment Status ----
-        async function updateAppointmentStatus(apptId, newStatus) {
-            const container = document.getElementById(`actions-${apptId}`);
-            if (container) {
-                container.innerHTML = '<span style="font-size: var(--text-xs); color: var(--text-muted); padding: 4px 0;"><div class="spinner" style="display:inline-block; vertical-align:middle; width:12px; height:12px; margin-right:6px;"></div>Updating status...</span>';
-            }
-
-            try {
-                const res = await fetch(`/dashboard/api/appointments/${apptId}/status`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    // Update locally in allConversations array for instant response
-                    allConversations.forEach(c => {
-                        if (c.appointments) {
-                            c.appointments.forEach(a => {
-                                if (a.id === apptId) {
-                                    a.status = newStatus;
-                                    // Update the overall conversation's appointment status
-                                    c.appointment_status = newStatus;
-                                }
-                            });
-                        }
-                    });
-
-                    // Save to cache
-                    localStorage.setItem('mpc_conversations', JSON.stringify(allConversations));
-                    
-                    // Force refresh active layout and list
-                    renderTable();
-                    if (selectedUserId) {
-                        const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
-                        if (idx !== -1) selectRow(idx, null, false);
-                    }
-                    
-                    // Reload statistics strip
-                    await loadStats();
-                } else {
-                    alert('Failed to update status: ' + (data.error || 'Unknown error'));
-                    if (selectedUserId) {
-                        const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
-                        if (idx !== -1) selectRow(idx, null, false);
-                    }
-                }
-            } catch (e) {
-                console.error('Status update failed:', e);
-                alert('Connection error occurred while updating status.');
-                if (selectedUserId) {
-                    const idx = allConversations.findIndex(c => c.user_id === selectedUserId);
-                    if (idx !== -1) selectRow(idx, null, false);
-                }
+            // Scroll thread to bottom
+            const threadEl = document.querySelector('.thread');
+            if (threadEl) {
+                threadEl.scrollTop = threadEl.scrollHeight;
             }
         }
 

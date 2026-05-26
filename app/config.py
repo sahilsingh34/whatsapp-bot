@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     # ---- Redis ----
     REDIS_URL: str = "redis://redis:6379/0"
 
+    # ---- Redis Agent Memory ----
+    REDIS_MEMORY_ENDPOINT: str = ""
+    REDIS_MEMORY_STORE_ID: str = ""
+    REDIS_MEMORY_API_KEY: str = ""
+
+    # ---- Redis LangCache ----
+    REDIS_LANGCACHE_ENDPOINT: str = ""
+    REDIS_LANGCACHE_CACHE_ID: str = ""
+    REDIS_LANGCACHE_API_KEY: str = ""
+
     # ---- Clinic Staff (for escalation) ----
     CLINIC_STAFF_PHONE: str = ""
 
