@@ -98,26 +98,26 @@ async def save_message(
 
     # Save session event in Redis Agent Memory
     try:
-            from redis_agent_memory import AgentMemory, models
-            import time
-            
-            role_enum = models.MessageRole.USER if role == "user" else models.MessageRole.ASSISTANT
-            
-            with AgentMemory(
-                server_url=settings.REDIS_MEMORY_ENDPOINT,
-                api_key=settings.REDIS_MEMORY_API_KEY,
-                store_id=settings.REDIS_MEMORY_STORE_ID,
-            ) as agent_memory:
-                agent_memory.add_session_event(
-                    session_id=str(user_id),
-                    actor_id=str(user_id),
-                    role=role_enum,
-                    content=[{"text": message}],
-                    created_at=int(time.time() * 1000),
-                )
-                logger.info(f"💾 Session event appended to Redis Agent Memory for: {user_id}")
-        except Exception as e:
-            logger.warning(f"Failed to append to Redis Agent Memory: {e}")
+        from redis_agent_memory import AgentMemory, models
+        import time
+        
+        role_enum = models.MessageRole.USER if role == "user" else models.MessageRole.ASSISTANT
+        
+        with AgentMemory(
+            server_url=settings.REDIS_MEMORY_ENDPOINT,
+            api_key=settings.REDIS_MEMORY_API_KEY,
+            store_id=settings.REDIS_MEMORY_STORE_ID,
+        ) as agent_memory:
+            agent_memory.add_session_event(
+                session_id=str(user_id),
+                actor_id=str(user_id),
+                role=role_enum,
+                content=[{"text": message}],
+                created_at=int(time.time() * 1000),
+            )
+            logger.info(f"💾 Session event appended to Redis Agent Memory for: {user_id}")
+    except Exception as e:
+        logger.warning(f"Failed to append to Redis Agent Memory: {e}")
 
     return conversation
 
@@ -191,26 +191,26 @@ async def get_conversation_history(
 
     # ---- Cache in Redis Agent Memory ----
     try:
-            from redis_agent_memory import AgentMemory, models
-            import time
-            
-            with AgentMemory(
-                server_url=settings.REDIS_MEMORY_ENDPOINT,
-                api_key=settings.REDIS_MEMORY_API_KEY,
-                store_id=settings.REDIS_MEMORY_STORE_ID,
-            ) as agent_memory:
-                for i, h in enumerate(history):
-                    role_enum = models.MessageRole.USER if h["role"] == "user" else models.MessageRole.ASSISTANT
-                    agent_memory.add_session_event(
-                        session_id=str(user_id),
-                        actor_id=str(user_id),
-                        role=role_enum,
-                        content=[{"text": h["content"]}],
-                        created_at=int((time.time() - len(history) + i) * 1000),
-                    )
-                logger.info(f"Cached {len(history)} messages in Redis Agent Memory for user {user_id}")
-        except Exception as e:
-            logger.warning(f"Redis Agent Memory cache write failed: {e}")
+        from redis_agent_memory import AgentMemory, models
+        import time
+        
+        with AgentMemory(
+            server_url=settings.REDIS_MEMORY_ENDPOINT,
+            api_key=settings.REDIS_MEMORY_API_KEY,
+            store_id=settings.REDIS_MEMORY_STORE_ID,
+        ) as agent_memory:
+            for i, h in enumerate(history):
+                role_enum = models.MessageRole.USER if h["role"] == "user" else models.MessageRole.ASSISTANT
+                agent_memory.add_session_event(
+                    session_id=str(user_id),
+                    actor_id=str(user_id),
+                    role=role_enum,
+                    content=[{"text": h["content"]}],
+                    created_at=int((time.time() - len(history) + i) * 1000),
+                )
+            logger.info(f"Cached {len(history)} messages in Redis Agent Memory for user {user_id}")
+    except Exception as e:
+        logger.warning(f"Redis Agent Memory cache write failed: {e}")
 
     return history
 
