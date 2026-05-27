@@ -99,12 +99,12 @@ async def analyze_conversation(
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(
-            api_key=settings.NVIDIA_API_KEY,
+            api_key=settings.GROQ_API_KEY,
             base_url=settings.AI_BASE_URL,
         )
 
         response = await client.chat.completions.create(
-            model=settings.AI_MODEL,
+            model=settings.AI_MODEL_SIMPLE,
             messages=[
                 {
                     "role": "system",

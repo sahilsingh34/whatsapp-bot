@@ -59,6 +59,21 @@ CHAT_HTML = """
             </div>
         </div>
         
+        <!-- Active Models Info Card -->
+        <div style="background-color: #f7f9f8; padding: 10px 14px; border-bottom: 1px solid #d4ddd8; font-size: 12.5px; color: #2d3e35; z-index: 5;">
+            <p style="font-weight: 700; font-size: 10px; text-transform: uppercase; color: #075e54; margin-bottom: 5px; letter-spacing: 0.8px;">Model Selector (Auto-Selected)</p>
+            <div style="display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
+                <div style="display: flex; align-items: flex-start; gap: 6px;">
+                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #075e54; margin-top: 5px; flex-shrink: 0;"></span>
+                    <span><strong>Llama 3.1 8B</strong> <span style="color: #666;">(recommended for most clinic queries)</span></span>
+                </div>
+                <div style="display: flex; align-items: flex-start; gap: 6px;">
+                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #075e54; margin-top: 5px; flex-shrink: 0;"></span>
+                    <span><strong>Llama 3.3 70B</strong> <span style="color: #666;">(for complex medical questions)</span></span>
+                </div>
+            </div>
+        </div>
+        
         <div id="chat-messages">
             <div class="message bot">
                 Hi! Welcome to the AI Demo. Type a message below to test the clinic assistant.
@@ -96,10 +111,27 @@ CHAT_HTML = """
             return now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
         }
 
-        function addMessage(text, type) {
+        function addMessage(text, type, model = null) {
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${type}`;
             msgDiv.innerText = text;
+            
+            if (model && type === 'bot') {
+                const modelBadge = document.createElement('div');
+                modelBadge.style.fontSize = '9.5px';
+                modelBadge.style.color = '#008f68';
+                modelBadge.style.fontWeight = '600';
+                modelBadge.style.marginTop = '6px';
+                modelBadge.style.borderTop = '1px solid #f0f0f0';
+                modelBadge.style.paddingTop = '4px';
+                modelBadge.style.display = 'flex';
+                modelBadge.style.alignItems = 'center';
+                modelBadge.style.gap = '4px';
+                
+                const modelText = model === 'llama-3.3-70b-versatile' ? 'Llama 3.3 70B (Complex Medical)' : 'Llama 3.1 8B (Clinic Query)';
+                modelBadge.innerHTML = `<span>🧠</span> <span>Routed to ${modelText}</span>`;
+                msgDiv.appendChild(modelBadge);
+            }
             
             const timeDiv = document.createElement('div');
             timeDiv.className = 'time';
@@ -133,7 +165,7 @@ CHAT_HTML = """
                 typingIndicator.style.display = 'none';
                 
                 if(data.response) {
-                    addMessage(data.response, 'bot');
+                    addMessage(data.response, 'bot', data.model);
                 } else {
                     addMessage("Error getting response.", 'bot');
                 }
@@ -173,7 +205,7 @@ async def process_demo_chat(req: ChatRequest, db: AsyncSession = Depends(get_db)
         await memory_service.save_message(db, user.id, "user", req.message)
         
         conversation = history + [{"role": "user", "content": req.message}]
-        ai_response = await ai_service.generate_response(conversation, db=db)
+        ai_response, selected_model = await ai_service.generate_response(conversation, db=db)
         
         # Check for appointment data
         appointment_data = appointment_service.parse_appointment_from_response(ai_response)
@@ -213,11 +245,12 @@ async def process_demo_chat(req: ChatRequest, db: AsyncSession = Depends(get_db)
             name=f"demo-learn-{str(user.id)[:8]}",
         )
         
-        return {"response": clean_response}
+        return {"response": clean_response, "model": selected_model}
         
     except Exception as e:
         logger.error(f"Demo chat error: {e}")
-        return {"response": "System error. Try again."}
+        await db.rollback()
+        return {"response": "System error. Try again.", "model": "Unknown"}
 
 
 async def _demo_background_learn(user_id) -> None:

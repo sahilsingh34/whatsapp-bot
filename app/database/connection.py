@@ -39,6 +39,8 @@ engine = create_async_engine(
     echo=False,  # Disabled: Windows cp1252 console crashes on Unicode (emojis/arrows in learned insights)
     pool_size=3,
     max_overflow=2,
+    pool_pre_ping=True,
+    pool_recycle=1800,
 )
 
 # ---- Session Factory ----

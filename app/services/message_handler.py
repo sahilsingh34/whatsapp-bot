@@ -72,7 +72,7 @@ async def handle_incoming_message(
         conversation = history + [{"role": "user", "content": text}]
 
         # ---- 6. Generate AI response (with dynamic prompt enrichment) ----
-        ai_response = await ai_service.generate_response(conversation, db=db)
+        ai_response, selected_model = await ai_service.generate_response(conversation, db=db)
 
         # ---- 7. Check for appointment data ----
         appointment_data = appointment_service.parse_appointment_from_response(ai_response)

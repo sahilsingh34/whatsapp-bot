@@ -10,8 +10,8 @@ from functools import lru_cache
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
-    # ---- NVIDIA NIM API ----
-    NVIDIA_API_KEY: str
+    # ---- Groq API ----
+    GROQ_API_KEY: str
 
     # ---- WhatsApp Cloud API ----
     WHATSAPP_TOKEN: str
@@ -52,9 +52,10 @@ class Settings(BaseSettings):
     WORKING_HOUR_END: int = 20    # 8 PM
     TIMEZONE: str = "Asia/Kolkata"
 
-    # ---- AI Configuration (NVIDIA NIM) ----
-    AI_MODEL: str = "meta/llama-3.3-70b-instruct"
-    AI_BASE_URL: str = "https://integrate.api.nvidia.com/v1"
+    # ---- AI Configuration (Groq) ----
+    AI_MODEL_SIMPLE: str = "llama-3.1-8b-instant"
+    AI_MODEL_COMPLEX: str = "llama-3.3-70b-versatile"
+    AI_BASE_URL: str = "https://api.groq.com/openai/v1"
     AI_TEMPERATURE: float = 0.7
     AI_MAX_TOKENS: int = 300
 

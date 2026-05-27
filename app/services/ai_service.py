@@ -18,9 +18,9 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# ---- NVIDIA NIM Client (OpenAI-compatible) ----
+# ---- Groq Client (OpenAI-compatible) ----
 client = AsyncOpenAI(
-    api_key=settings.NVIDIA_API_KEY,
+    api_key=settings.GROQ_API_KEY,
     base_url=settings.AI_BASE_URL,
 )
 
@@ -254,12 +254,26 @@ async def generate_response(
         messages = [{"role": "system", "content": system_prompt}]
         messages.extend(conversation_history)
 
-        # Get the newest user query for semantic caching
+        # Get the newest user query for semantic caching & model routing
         newest_query = ""
         for msg in reversed(conversation_history):
             if msg["role"] == "user":
                 newest_query = msg["content"]
                 break
+
+        # ---- Route query to simple/complex model based on keywords ----
+        complex_keywords = [
+            "sciatic", "spine", "disc", "pathology", "cervical", "lumbar", "herniation", 
+            "slipped", "compression", "decompression", "hbot", "hyperbaric", "cryotherapy", 
+            "pelvic", "incontinence", "nerve", "tendonitis", "rehab", "surgery", "mri", 
+            "x-ray", "xray", "osteoarthritis", "arthritis", "sciatica", "stenosis", 
+            "spondylitis", "scoliosis", "lordosis", "kyphosis", "neuropathy", "ligament", 
+            "meniscus", "tear", "fracture", "inflammation"
+        ]
+        query_lower = newest_query.lower()
+        is_complex = any(keyword in query_lower for keyword in complex_keywords)
+        selected_model = settings.AI_MODEL_COMPLEX if is_complex else settings.AI_MODEL_SIMPLE
+        logger.info(f"🧠 Query complexity routing: '{newest_query[:40]}' -> {selected_model} (is_complex={is_complex})")
 
         cache_hit = None
         if newest_query and settings.APP_ENV != "development":
@@ -282,11 +296,11 @@ async def generate_response(
                 logger.warning(f"LangCache search failed: {cache_err}")
 
         if cache_hit:
-            return cache_hit
+            return cache_hit, selected_model
 
         # ---- Cache Miss: Generate fresh response ----
         response = await client.chat.completions.create(
-            model=settings.AI_MODEL,
+            model=selected_model,
             messages=messages,
             temperature=settings.AI_TEMPERATURE,
             max_tokens=settings.AI_MAX_TOKENS,
@@ -312,14 +326,15 @@ async def generate_response(
             except Exception as cache_err:
                 logger.warning(f"Failed to save response to LangCache: {cache_err}")
 
-        return ai_message
+        return ai_message, selected_model
 
     except Exception as e:
         logger.error(f"❌ OpenAI API error: {e}")
-        return (
+        fallback_msg = (
             "I apologize, but I'm experiencing a temporary issue. "
             "Please try again in a moment, or contact us directly:\n\n"
             "📞 +91 81694 00907 / +91 81694 00903\n"
             "📧 connect@mypainclinicglobal.com\n\n"
             "Clinic hours: Mon-Sat, 8:30 AM to 8:00 PM. Thank you for your patience! 🙏"
         )
+        return fallback_msg, settings.AI_MODEL_SIMPLE
