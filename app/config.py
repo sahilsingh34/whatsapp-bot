@@ -3,8 +3,12 @@ Application configuration loaded from environment variables.
 Uses pydantic-settings for type-safe configuration management.
 """
 
-from pydantic_settings import BaseSettings
+import logging
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
+
+logger = logging.getLogger(__name__)
+
 
 
 class Settings(BaseSettings):
@@ -64,13 +68,19 @@ class Settings(BaseSettings):
     REDIS_CACHE_TTL: int = 3600       # 1 hour in seconds
     MEMORY_RETENTION_DAYS: int = 30
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore"
+    )
 
 
 @lru_cache()
 def get_settings() -> Settings:
     """Returns cached settings instance."""
-    return Settings()
+    settings = Settings()
+    logger.info(f"Loaded REDIS_MEMORY_ENDPOINT: '{settings.REDIS_MEMORY_ENDPOINT}'")
+    logger.info(f"Loaded REDIS_LANGCACHE_ENDPOINT: '{settings.REDIS_LANGCACHE_ENDPOINT}'")
+    return settings
+

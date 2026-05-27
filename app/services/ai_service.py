@@ -285,7 +285,7 @@ async def generate_response(
         logger.info(f"🧠 Query complexity routing: '{newest_query[:40]}' -> {selected_model} (is_complex={is_complex})")
 
         cache_hit = None
-        if newest_query:
+        if newest_query and settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
             try:
                 from langcache import LangCache
                 
@@ -322,18 +322,19 @@ async def generate_response(
 
         # Save to LangCache if it does not contain transient appointment/escalation tags
         if newest_query and ai_message and "[APPOINTMENT_COLLECTED]" not in ai_message and "[ESCALATE]" not in ai_message:
-            try:
-                from langcache import LangCache
-                
-                with LangCache(
-                    server_url=settings.REDIS_LANGCACHE_ENDPOINT,
-                    cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
-                    api_key=settings.REDIS_LANGCACHE_API_KEY,
-                ) as lang_cache:
-                    lang_cache.set(prompt=newest_query, response=ai_message)
-                    logger.info(f"💾 Saved response to LangCache for prompt: '{newest_query}'")
-            except Exception as cache_err:
-                logger.warning(f"Failed to save response to LangCache: {cache_err}")
+            if settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
+                try:
+                    from langcache import LangCache
+                    
+                    with LangCache(
+                        server_url=settings.REDIS_LANGCACHE_ENDPOINT,
+                        cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
+                        api_key=settings.REDIS_LANGCACHE_API_KEY,
+                    ) as lang_cache:
+                        lang_cache.set(prompt=newest_query, response=ai_message)
+                        logger.info(f"💾 Saved response to LangCache for prompt: '{newest_query}'")
+                except Exception as cache_err:
+                    logger.warning(f"Failed to save response to LangCache: {cache_err}")
 
         return ai_message, selected_model
 
