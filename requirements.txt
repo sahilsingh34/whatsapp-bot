@@ -29,3 +29,7 @@ pytest-asyncio==0.25.0
 
 # Logging
 python-json-logger==3.2.1
+
+# Redis Agent Services
+redis-agent-memory
+langcache
