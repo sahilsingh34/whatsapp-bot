@@ -4,20 +4,22 @@ AI-powered WhatsApp assistant for **My Pain Clinic Global, Bandra** that automat
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green)
-![OpenAI](https://img.shields.io/badge/AI-GPT--4.1--mini-orange)
+![Groq](https://img.shields.io/badge/LLM-Groq--Llama3.3-orange)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue)
 
 ---
 
 ## ✨ Features
 
-- 🤖 **AI Auto-Reply** — Intelligent responses during non-working hours (9 PM – 9 AM) and Sundays
+- 🤖 **AI Auto-Reply (Groq Engine)** — Superfast context-aware responses during non-working hours powered by Groq
+- 🧠 **Intelligent Auto-Selector Router** — Automatically routes queries to Llama 3.1 8B (general queries) or Llama 3.3 70B (complex medical questions)
+- 🧬 **Database Resilience** — Automatic pg connection health pre-pings and recycling to prevent pool socket timeouts
 - 🧠 **Conversation Memory** — Remembers chat context (last 20 messages, 30-day retention)
 - 📅 **Appointment Capture** — Collects patient name, pain type, preferred date/time
 - 🚨 **Emergency Escalation** — Detects urgent keywords and notifies clinic staff via WhatsApp
 - ⏰ **Time-Based Routing** — AI handles after-hours; staff acknowledgment during working hours
 - 🔐 **Secure** — Webhook verification, API key auth, environment variable protection
-- 📊 **Admin API** — REST endpoints to manage appointments
+- 📊 **Admin API & UI** — Dynamic spreadsheet dashboard displaying patient conversations and auto-routing badges
 
 ---
 
@@ -28,10 +30,10 @@ WhatsApp User → Meta Cloud API → FastAPI Webhook → Message Handler
                                                         ↓
                                               ┌─────────┼─────────┐
                                               ↓         ↓         ↓
-                                         Time Check  AI Engine  Memory
+                                         Time Check  AI Router  Memory
                                               ↓         ↓         ↓
-                                         Staff Reply  GPT-4.1  PostgreSQL
-                                                     mini      + Redis
+                                         Staff Reply  Groq Llama  PostgreSQL
+                                                      (3.1/3.3)   + Redis
                                                         ↓
                                               ┌─────────┼─────────┐
                                               ↓                   ↓
