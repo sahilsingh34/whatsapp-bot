@@ -140,39 +140,39 @@ async def get_conversation_history(
     """
     # ---- Try Redis Agent Memory first ----
     try:
-            from redis_agent_memory import AgentMemory
-            
-            with AgentMemory(
-                server_url=settings.REDIS_MEMORY_ENDPOINT,
-                api_key=settings.REDIS_MEMORY_API_KEY,
-                store_id=settings.REDIS_MEMORY_STORE_ID,
-            ) as agent_memory:
-                session_mem = agent_memory.get_session_memory(session_id=str(user_id))
-                if session_mem and hasattr(session_mem, "events") and session_mem.events:
-                    logger.info(f"🏆 Cache hit from Redis Agent Memory for user {user_id}")
-                    history = []
-                    for event in session_mem.events:
-                        # Map enum to role string
-                        role_str = "user" if event.role.value == "user" else "assistant"
-                        msg_text = ""
-                        if event.content:
-                            for chunk in event.content:
-                                if hasattr(chunk, "text") and chunk.text:
-                                    msg_text += chunk.text
-                                elif isinstance(chunk, dict) and "text" in chunk:
-                                    msg_text += chunk["text"]
-                        if msg_text:
-                            history.append({"role": role_str, "content": msg_text})
-                    
-                    if history:
-                        return history[-settings.CONVERSATION_HISTORY_LIMIT:]
-        except Exception as e:
-            # Log 404/not found as a clean info block instead of a warning
-            err_str = str(e)
-            if "404" in err_str or "not found" in err_str.lower():
-                logger.info(f"ℹ️ Redis Agent Memory: session not found (expected for new chat) for {user_id}")
-            else:
-                logger.warning(f"Redis Agent Memory session read failed: {e}")
+        from redis_agent_memory import AgentMemory
+        
+        with AgentMemory(
+            server_url=settings.REDIS_MEMORY_ENDPOINT,
+            api_key=settings.REDIS_MEMORY_API_KEY,
+            store_id=settings.REDIS_MEMORY_STORE_ID,
+        ) as agent_memory:
+            session_mem = agent_memory.get_session_memory(session_id=str(user_id))
+            if session_mem and hasattr(session_mem, "events") and session_mem.events:
+                logger.info(f"🏆 Cache hit from Redis Agent Memory for user {user_id}")
+                history = []
+                for event in session_mem.events:
+                    # Map enum to role string
+                    role_str = "user" if event.role.value == "user" else "assistant"
+                    msg_text = ""
+                    if event.content:
+                        for chunk in event.content:
+                            if hasattr(chunk, "text") and chunk.text:
+                                msg_text += chunk.text
+                            elif isinstance(chunk, dict) and "text" in chunk:
+                                msg_text += chunk["text"]
+                    if msg_text:
+                        history.append({"role": role_str, "content": msg_text})
+                
+                if history:
+                    return history[-settings.CONVERSATION_HISTORY_LIMIT:]
+    except Exception as e:
+        # Log 404/not found as a clean info block instead of a warning
+        err_str = str(e)
+        if "404" in err_str or "not found" in err_str.lower():
+            logger.info(f"ℹ️ Redis Agent Memory: session not found (expected for new chat) for {user_id}")
+        else:
+            logger.warning(f"Redis Agent Memory session read failed: {e}")
 
     # ---- Fall back to PostgreSQL ----
     result = await db.execute(
