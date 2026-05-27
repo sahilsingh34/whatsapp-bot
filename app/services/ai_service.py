@@ -285,7 +285,7 @@ async def generate_response(
         logger.info(f"🧠 Query complexity routing: '{newest_query[:40]}' -> {selected_model} (is_complex={is_complex})")
 
         cache_hit = None
-        if newest_query and settings.APP_ENV != "development":
+        if newest_query:
             try:
                 from langcache import LangCache
                 

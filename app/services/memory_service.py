@@ -96,9 +96,8 @@ async def save_message(
         
     await db.flush()
 
-    # Save session event in Redis Agent Memory (bypassed in development to eliminate US-East network latency)
-    if settings.APP_ENV != "development":
-        try:
+    # Save session event in Redis Agent Memory
+    try:
             from redis_agent_memory import AgentMemory, models
             import time
             
@@ -139,9 +138,8 @@ async def get_conversation_history(
         List of message dicts with 'role' and 'content' keys,
         ordered chronologically (oldest first).
     """
-    # ---- Try Redis Agent Memory first (bypassed in development to eliminate US-East network latency) ----
-    if settings.APP_ENV != "development":
-        try:
+    # ---- Try Redis Agent Memory first ----
+    try:
             from redis_agent_memory import AgentMemory
             
             with AgentMemory(
@@ -191,9 +189,8 @@ async def get_conversation_history(
         for conv in reversed(conversations)
     ]
 
-    # ---- Cache in Redis Agent Memory (bypassed in development) ----
-    if settings.APP_ENV != "development":
-        try:
+    # ---- Cache in Redis Agent Memory ----
+    try:
             from redis_agent_memory import AgentMemory, models
             import time
             
