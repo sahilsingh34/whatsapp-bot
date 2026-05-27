@@ -5,7 +5,7 @@ Trained on real data from mypainclinicglobal.com and clinic service management s
 Uses NVIDIA NIM's OpenAI-compatible API endpoint.
 Supports dynamic prompt enrichment via the self-learning system.
 """
-
+import asyncio
 import logging
 from typing import List, Dict, Optional
 
@@ -286,21 +286,23 @@ async def generate_response(
 
         cache_hit = None
         if newest_query and settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
-            try:
+            def search_cache():
                 from langcache import LangCache
-                
                 with LangCache(
                     server_url=settings.REDIS_LANGCACHE_ENDPOINT,
                     cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
                     api_key=settings.REDIS_LANGCACHE_API_KEY,
                 ) as lang_cache:
-                    search_res = lang_cache.search(prompt=newest_query, similarity_threshold=0.95)
-                    if search_res and search_res.data:
-                        best_match = search_res.data[0]
-                        # Ensure we do not serve cached transient appointment/escalation tags
-                        if "[APPOINTMENT_COLLECTED]" not in best_match.response and "[ESCALATE]" not in best_match.response:
-                            cache_hit = best_match.response
-                            logger.info(f"⚡ LangCache Hit! Similarity: {best_match.similarity:.4f} for prompt: '{newest_query}'")
+                    return lang_cache.search(prompt=newest_query, similarity_threshold=0.95)
+
+            try:
+                search_res = await asyncio.to_thread(search_cache)
+                if search_res and search_res.data:
+                    best_match = search_res.data[0]
+                    # Ensure we do not serve cached transient appointment/escalation tags
+                    if "[APPOINTMENT_COLLECTED]" not in best_match.response and "[ESCALATE]" not in best_match.response:
+                        cache_hit = best_match.response
+                        logger.info(f"⚡ LangCache Hit! Similarity: {best_match.similarity:.4f} for prompt: '{newest_query}'")
             except Exception as cache_err:
                 logger.warning(f"LangCache search failed: {cache_err}")
 
@@ -323,18 +325,20 @@ async def generate_response(
         # Save to LangCache if it does not contain transient appointment/escalation tags
         if newest_query and ai_message and "[APPOINTMENT_COLLECTED]" not in ai_message and "[ESCALATE]" not in ai_message:
             if settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
-                try:
-                    from langcache import LangCache
-                    
-                    with LangCache(
-                        server_url=settings.REDIS_LANGCACHE_ENDPOINT,
-                        cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
-                        api_key=settings.REDIS_LANGCACHE_API_KEY,
-                    ) as lang_cache:
-                        lang_cache.set(prompt=newest_query, response=ai_message)
-                        logger.info(f"💾 Saved response to LangCache for prompt: '{newest_query}'")
-                except Exception as cache_err:
-                    logger.warning(f"Failed to save response to LangCache: {cache_err}")
+                def save_cache():
+                    try:
+                        from langcache import LangCache
+                        with LangCache(
+                            server_url=settings.REDIS_LANGCACHE_ENDPOINT,
+                            cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
+                            api_key=settings.REDIS_LANGCACHE_API_KEY,
+                        ) as lang_cache:
+                            lang_cache.set(prompt=newest_query, response=ai_message)
+                            logger.info(f"💾 Saved response to LangCache for prompt: '{newest_query}'")
+                    except Exception as cache_err:
+                        logger.warning(f"Failed to save response to LangCache in background: {cache_err}")
+
+                asyncio.create_task(asyncio.to_thread(save_cache))
 
         return ai_message, selected_model
 
