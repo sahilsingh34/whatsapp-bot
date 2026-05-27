@@ -58,22 +58,6 @@ CHAT_HTML = """
                 <p>AI Assistant • Typically replies instantly</p>
             </div>
         </div>
-        
-        <!-- Active Models Info Card -->
-        <div style="background-color: #f7f9f8; padding: 10px 14px; border-bottom: 1px solid #d4ddd8; font-size: 12.5px; color: #2d3e35; z-index: 5;">
-            <p style="font-weight: 700; font-size: 10px; text-transform: uppercase; color: #075e54; margin-bottom: 5px; letter-spacing: 0.8px;">Model Selector (Auto-Selected)</p>
-            <div style="display: flex; flex-direction: column; gap: 4px; line-height: 1.4;">
-                <div style="display: flex; align-items: flex-start; gap: 6px;">
-                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #075e54; margin-top: 5px; flex-shrink: 0;"></span>
-                    <span><strong>Llama 3.1 8B</strong> <span style="color: #666;">(recommended for most clinic queries)</span></span>
-                </div>
-                <div style="display: flex; align-items: flex-start; gap: 6px;">
-                    <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background-color: #075e54; margin-top: 5px; flex-shrink: 0;"></span>
-                    <span><strong>Llama 3.3 70B</strong> <span style="color: #666;">(for complex medical questions)</span></span>
-                </div>
-            </div>
-        </div>
-        
         <div id="chat-messages">
             <div class="message bot">
                 Hi! Welcome to the AI Demo. Type a message below to test the clinic assistant.
@@ -115,23 +99,6 @@ CHAT_HTML = """
             const msgDiv = document.createElement('div');
             msgDiv.className = `message ${type}`;
             msgDiv.innerText = text;
-            
-            if (model && type === 'bot') {
-                const modelBadge = document.createElement('div');
-                modelBadge.style.fontSize = '9.5px';
-                modelBadge.style.color = '#008f68';
-                modelBadge.style.fontWeight = '600';
-                modelBadge.style.marginTop = '6px';
-                modelBadge.style.borderTop = '1px solid #f0f0f0';
-                modelBadge.style.paddingTop = '4px';
-                modelBadge.style.display = 'flex';
-                modelBadge.style.alignItems = 'center';
-                modelBadge.style.gap = '4px';
-                
-                const modelText = model === 'llama-3.3-70b-versatile' ? 'Llama 3.3 70B (Complex Medical)' : 'Llama 3.1 8B (Clinic Query)';
-                modelBadge.innerHTML = `<span>🧠</span> <span>Routed to ${modelText}</span>`;
-                msgDiv.appendChild(modelBadge);
-            }
             
             const timeDiv = document.createElement('div');
             timeDiv.className = 'time';
