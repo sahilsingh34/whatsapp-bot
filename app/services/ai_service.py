@@ -44,6 +44,70 @@ def _normalize_query(query: str) -> str:
     return q if len(q) >= 3 else ""
 
 
+# ---- Keywords that indicate a cacheable FAQ-type question ----
+_FAQ_KEYWORDS = [
+    # Timings / hours
+    "timing", "timings", "time", "hours", "open", "close", "kab", "kitne baje",
+    "working hours", "clinic hours", "band", "khulta", "sunday",
+    # Location / address
+    "location", "address", "kahan", "where", "directions", "map", "bandra",
+    "parking", "reach", "near",
+    # Cost / pricing
+    "cost", "price", "charge", "fee", "fees", "kitna", "kitne", "rate",
+    "package", "expensive", "affordable", "budget", "rs", "rupees", "paisa",
+    # Services / treatments
+    "service", "services", "treatment", "treatments", "therapy", "therapies",
+    "consultation", "physiotherapy", "decompression", "aligner", "robotic",
+    "hbot", "hyperbaric", "cryotherapy", "ice bath", "pelvic", "pilates",
+    "red light", "insole", "insoles", "shockwave",
+    # Doctors
+    "doctor", "doctors", "dr", "krishna", "vansh", "hardi", "gladys",
+    "specialist", "kaun", "kon",
+    # Contact
+    "phone", "number", "call", "email", "contact", "whatsapp", "website",
+    # Booking
+    "book", "booking", "appointment", "slot", "slots", "available",
+    # About clinic
+    "about", "clinic", "hospital", "review", "reviews", "rating", "google",
+    "instagram", "specialization",
+]
+
+# ---- Skip patterns: greetings, fillers, personal/emotional messages ----
+_SKIP_PATTERNS = [
+    # Greetings
+    r"^(hi|hello|hey|hii+|namaste|namaskar|good morning|good evening|good afternoon|good night)$",
+    # Thank you / bye
+    r"^(thanks|thank you|thankyou|shukriya|dhanyavad|bye|ok|okay|theek hai|accha|haan|ji|hmm)$",
+    # Very short (1-2 words that aren't FAQ keywords)
+    r"^\S+$",  # single word (will be checked against FAQ keywords separately)
+]
+
+
+def _is_cacheable_query(normalized_query: str) -> bool:
+    """
+    Determine if a query is a common FAQ-type question worth caching globally.
+    Returns True only for clinic-related informational queries.
+    Skips greetings, personal pain stories, and conversational fillers.
+    """
+    if not normalized_query or len(normalized_query) < 3:
+        return False
+
+    q = normalized_query.lower()
+    words = q.split()
+
+    # Skip very short messages (1 word) unless it's a known FAQ keyword
+    if len(words) == 1:
+        return any(kw == q for kw in _FAQ_KEYWORDS)
+
+    # Skip greeting/filler patterns
+    for pattern in _SKIP_PATTERNS[:-1]:  # skip the single-word pattern here
+        if _re.match(pattern, q):
+            return False
+
+    # Check if the query contains at least one FAQ keyword
+    return any(kw in q for kw in _FAQ_KEYWORDS)
+
+
 def extract_date_from_text(text: str, now: datetime) -> Optional[str]:
     text_lower = text.lower()
     
@@ -300,10 +364,10 @@ async def generate_response(
         selected_model = settings.AI_MODEL_COMPLEX if is_complex else settings.AI_MODEL_SIMPLE
         logger.info(f"🧠 Query complexity routing: '{newest_query[:40]}' -> {selected_model} (is_complex={is_complex})")
 
-        # ---- Check Redis Q&A Cache for common questions ----
+        # ---- Check Redis Q&A Cache for common FAQ questions ----
         cache_hit = None
         normalized_query = _normalize_query(newest_query)
-        if normalized_query:
+        if normalized_query and _is_cacheable_query(normalized_query):
             try:
                 from app.database.redis import get_redis
                 redis = get_redis()
@@ -414,10 +478,10 @@ async def generate_response(
             ai_message = response_message.content
             logger.info(f"AI response generated ({len(ai_message)} chars)")
 
-        # ---- Save to Redis Q&A Cache (global, for all patients) ----
+        # ---- Save to Redis Q&A Cache (only FAQ-type questions, global) ----
         if newest_query and ai_message and "[APPOINTMENT_COLLECTED]" not in ai_message and "[ESCALATE]" not in ai_message:
             normalized_q = _normalize_query(newest_query)
-            if normalized_q:
+            if normalized_q and _is_cacheable_query(normalized_q):
                 async def _save_qa_cache():
                     try:
                         from app.database.redis import get_redis
@@ -432,6 +496,9 @@ async def generate_response(
                         logger.warning(f"Failed to save Q&A to Redis cache: {cache_err}")
 
                 asyncio.create_task(_save_qa_cache())
+            else:
+                logger.debug(f"⏭️ Skipped Q&A cache (not FAQ-type): '{newest_query[:50]}'")
+
 
         return ai_message, selected_model
 
