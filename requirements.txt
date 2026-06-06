@@ -33,3 +33,4 @@ python-json-logger==3.2.1
 # Redis Agent Services
 redis-agent-memory
 langcache
+duckduckgo-search

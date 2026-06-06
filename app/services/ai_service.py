@@ -310,6 +310,35 @@ async def generate_response(
             return cache_hit, selected_model
 
         # ---- Cache Miss: Generate fresh response ----
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": (
+                        "Search the web for up-to-date information, recent events, medical research, "
+                        "or clinic-related details you don't know the answer to. Use this when the "
+                        "system prompt and self-learned clinic guidelines do not contain the answer."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "The search query to run on the web."
+                            }
+                        },
+                        "required": ["query"]
+                    }
+                }
+            }
+        ]
+
+        kwargs = {}
+        if settings.ENABLE_WEB_SEARCH:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+
         response = await client.chat.completions.create(
             model=selected_model,
             messages=messages,
@@ -317,10 +346,65 @@ async def generate_response(
             max_tokens=settings.AI_MAX_TOKENS,
             presence_penalty=0.1,
             frequency_penalty=0.1,
+            **kwargs
         )
 
-        ai_message = response.choices[0].message.content
-        logger.info(f"AI response generated ({len(ai_message)} chars)")
+        response_message = response.choices[0].message
+        tool_calls = getattr(response_message, "tool_calls", None)
+
+        if tool_calls:
+            # Append the assistant's tool call message to the conversation history
+            assistant_msg = {
+                "role": "assistant",
+                "content": response_message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": tc.type,
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        }
+                    }
+                    for tc in tool_calls
+                ]
+            }
+            messages.append(assistant_msg)
+
+            for tool_call in tool_calls:
+                function_name = tool_call.function.name
+                if function_name == "web_search":
+                    import json
+                    try:
+                        function_args = json.loads(tool_call.function.arguments)
+                        search_query = function_args.get("query", newest_query)
+                    except Exception:
+                        search_query = newest_query
+
+                    from app.services.search_service import web_search
+                    search_result = await web_search(search_query)
+
+                    messages.append({
+                        "tool_call_id": tool_call.id,
+                        "role": "tool",
+                        "name": function_name,
+                        "content": search_result,
+                    })
+
+            # Request second completion with the tool results included
+            second_response = await client.chat.completions.create(
+                model=selected_model,
+                messages=messages,
+                temperature=settings.AI_TEMPERATURE,
+                max_tokens=settings.AI_MAX_TOKENS,
+                presence_penalty=0.1,
+                frequency_penalty=0.1,
+            )
+            ai_message = second_response.choices[0].message.content
+            logger.info(f"AI response generated after tool call ({len(ai_message)} chars)")
+        else:
+            ai_message = response_message.content
+            logger.info(f"AI response generated ({len(ai_message)} chars)")
 
         # Save to LangCache if it does not contain transient appointment/escalation tags
         if newest_query and ai_message and "[APPOINTMENT_COLLECTED]" not in ai_message and "[ESCALATE]" not in ai_message:

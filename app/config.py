@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     AI_BASE_URL: str = "https://api.groq.com/openai/v1"
     AI_TEMPERATURE: float = 0.7
     AI_MAX_TOKENS: int = 50
+    ENABLE_WEB_SEARCH: bool = True
 
     # ---- Memory Configuration ----
     CONVERSATION_HISTORY_LIMIT: int = 20
