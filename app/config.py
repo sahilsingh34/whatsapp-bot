@@ -28,15 +28,8 @@ class Settings(BaseSettings):
     # ---- Redis ----
     REDIS_URL: str = "redis://redis:6379/0"
 
-    # ---- Redis Agent Memory ----
-    REDIS_MEMORY_ENDPOINT: str = ""
-    REDIS_MEMORY_STORE_ID: str = ""
-    REDIS_MEMORY_API_KEY: str = ""
-
-    # ---- Redis LangCache ----
-    REDIS_LANGCACHE_ENDPOINT: str = ""
-    REDIS_LANGCACHE_CACHE_ID: str = ""
-    REDIS_LANGCACHE_API_KEY: str = ""
+    # ---- Redis Q&A Cache ----
+    REDIS_QA_CACHE_TTL: int = 3600   # 1 hour TTL for cached common Q&A answers
 
     # ---- Clinic Staff (for escalation) ----
     CLINIC_STAFF_PHONE: str = ""
@@ -81,7 +74,5 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Returns cached settings instance."""
     settings = Settings()
-    logger.info(f"Loaded REDIS_MEMORY_ENDPOINT: '{settings.REDIS_MEMORY_ENDPOINT}'")
-    logger.info(f"Loaded REDIS_LANGCACHE_ENDPOINT: '{settings.REDIS_LANGCACHE_ENDPOINT}'")
     return settings
 

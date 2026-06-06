@@ -1,9 +1,9 @@
 """
 Memory Service — conversation history management.
-Uses Redis for hot cache, PostgreSQL for durable storage.
+Uses PostgreSQL for durable storage.
+Redis is used only for global Q&A caching (handled in ai_service).
 """
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta, timezone
@@ -14,7 +14,6 @@ from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
-from app.database.redis import get_redis
 from app.models.conversation import Conversation
 from app.models.user import User
 
@@ -69,7 +68,7 @@ async def save_message(
     message: str,
 ) -> Conversation:
     """
-    Save a message to the conversation history.
+    Save a message to the conversation history in PostgreSQL.
 
     Args:
         db: Database session.
@@ -97,33 +96,6 @@ async def save_message(
         
     await db.flush()
 
-    # Save session event in Redis Agent Memory in the background
-    if settings.REDIS_MEMORY_ENDPOINT and (settings.REDIS_MEMORY_ENDPOINT.startswith("http://") or settings.REDIS_MEMORY_ENDPOINT.startswith("https://")):
-        def append_memory():
-            try:
-                from redis_agent_memory import AgentMemory, models
-                import time
-                
-                role_enum = models.MessageRole.USER if role == "user" else models.MessageRole.ASSISTANT
-                
-                with AgentMemory(
-                    server_url=settings.REDIS_MEMORY_ENDPOINT,
-                    api_key=settings.REDIS_MEMORY_API_KEY,
-                    store_id=settings.REDIS_MEMORY_STORE_ID,
-                ) as agent_memory:
-                    agent_memory.add_session_event(
-                        session_id=str(user_id),
-                        actor_id=str(user_id),
-                        role=role_enum,
-                        content=[{"text": message}],
-                        created_at=int(time.time() * 1000),
-                    )
-                    logger.info(f"💾 Session event appended to Redis Agent Memory for: {user_id}")
-            except Exception as e:
-                logger.warning(f"Failed to append to Redis Agent Memory in background: {e}")
-
-        asyncio.create_task(asyncio.to_thread(append_memory))
-
     return conversation
 
 
@@ -132,8 +104,7 @@ async def get_conversation_history(
     user_id: UUID,
 ) -> List[Dict[str, str]]:
     """
-    Get recent conversation history for a user.
-    Checks Redis Agent Memory first, falls back to PostgreSQL.
+    Get recent conversation history for a user from PostgreSQL.
 
     Args:
         db: Database session.
@@ -143,46 +114,6 @@ async def get_conversation_history(
         List of message dicts with 'role' and 'content' keys,
         ordered chronologically (oldest first).
     """
-    # ---- Try Redis Agent Memory first ----
-    if settings.REDIS_MEMORY_ENDPOINT and (settings.REDIS_MEMORY_ENDPOINT.startswith("http://") or settings.REDIS_MEMORY_ENDPOINT.startswith("https://")):
-        def read_memory():
-            from redis_agent_memory import AgentMemory
-            with AgentMemory(
-                server_url=settings.REDIS_MEMORY_ENDPOINT,
-                api_key=settings.REDIS_MEMORY_API_KEY,
-                store_id=settings.REDIS_MEMORY_STORE_ID,
-            ) as agent_memory:
-                return agent_memory.get_session_memory(session_id=str(user_id))
-
-        try:
-            session_mem = await asyncio.to_thread(read_memory)
-            if session_mem and hasattr(session_mem, "events") and session_mem.events:
-                logger.info(f"🏆 Cache hit from Redis Agent Memory for user {user_id}")
-                history = []
-                for event in session_mem.events:
-                    # Map enum to role string
-                    role_str = "user" if event.role.value == "user" else "assistant"
-                    msg_text = ""
-                    if event.content:
-                        for chunk in event.content:
-                            if hasattr(chunk, "text") and chunk.text:
-                                msg_text += chunk.text
-                            elif isinstance(chunk, dict) and "text" in chunk:
-                                msg_text += chunk["text"]
-                    if msg_text:
-                        history.append({"role": role_str, "content": msg_text})
-                
-                if history:
-                    return history[-settings.CONVERSATION_HISTORY_LIMIT:]
-        except Exception as e:
-            # Log 404/not found as a clean info block instead of a warning
-            err_str = str(e)
-            if "404" in err_str or "not found" in err_str.lower():
-                logger.info(f"ℹ️ Redis Agent Memory: session not found (expected for new chat) for {user_id}")
-            else:
-                logger.warning(f"Redis Agent Memory session read failed: {e}")
-
-    # ---- Fall back to PostgreSQL ----
     result = await db.execute(
         select(Conversation)
         .where(Conversation.user_id == user_id)
@@ -197,91 +128,7 @@ async def get_conversation_history(
         for conv in reversed(conversations)
     ]
 
-    # ---- Cache in Redis Agent Memory ----
-    if settings.REDIS_MEMORY_ENDPOINT and (settings.REDIS_MEMORY_ENDPOINT.startswith("http://") or settings.REDIS_MEMORY_ENDPOINT.startswith("https://")):
-        def cache_memory():
-            try:
-                from redis_agent_memory import AgentMemory, models
-                import time
-                
-                with AgentMemory(
-                    server_url=settings.REDIS_MEMORY_ENDPOINT,
-                    api_key=settings.REDIS_MEMORY_API_KEY,
-                    store_id=settings.REDIS_MEMORY_STORE_ID,
-                ) as agent_memory:
-                    for i, h in enumerate(history):
-                        role_enum = models.MessageRole.USER if h["role"] == "user" else models.MessageRole.ASSISTANT
-                        agent_memory.add_session_event(
-                            session_id=str(user_id),
-                            actor_id=str(user_id),
-                            role=role_enum,
-                            content=[{"text": h["content"]}],
-                            created_at=int((time.time() - len(history) + i) * 1000),
-                        )
-                    logger.info(f"Cached {len(history)} messages in Redis Agent Memory for user {user_id}")
-            except Exception as e:
-                logger.warning(f"Redis Agent Memory cache write failed in background: {e}")
-
-        asyncio.create_task(asyncio.to_thread(cache_memory))
-
     return history
-
-    return history
-
-
-# ---- Redis Agent Memory Long-Term Semantic Storage ----
-
-async def save_long_term_memory(memory_id: str, text: str):
-    """
-    Save a fact or learned insight to Redis Agent Memory's long-term semantic memory.
-    """
-    if not settings.REDIS_MEMORY_ENDPOINT or not (settings.REDIS_MEMORY_ENDPOINT.startswith("http://") or settings.REDIS_MEMORY_ENDPOINT.startswith("https://")):
-        return
-
-    try:
-        from redis_agent_memory import AgentMemory
-        
-        with AgentMemory(
-            server_url=settings.REDIS_MEMORY_ENDPOINT,
-            api_key=settings.REDIS_MEMORY_API_KEY,
-            store_id=settings.REDIS_MEMORY_STORE_ID,
-        ) as agent_memory:
-            agent_memory.bulk_create_long_term_memories(memories=[
-                {"id": memory_id, "text": text}
-            ])
-            logger.info(f"🧠 Saved long-term semantic memory in Redis: {memory_id}")
-    except Exception as e:
-        logger.warning(f"Failed to save long-term semantic memory: {e}")
-
-
-async def search_long_term_memory(query_text: str) -> List[str]:
-    """
-    Search Redis Agent Memory's long-term semantic memory for matching facts.
-    """
-    if not settings.REDIS_MEMORY_ENDPOINT or not (settings.REDIS_MEMORY_ENDPOINT.startswith("http://") or settings.REDIS_MEMORY_ENDPOINT.startswith("https://")):
-        return []
-
-    try:
-        from redis_agent_memory import AgentMemory
-        
-        with AgentMemory(
-            server_url=settings.REDIS_MEMORY_ENDPOINT,
-            api_key=settings.REDIS_MEMORY_API_KEY,
-            store_id=settings.REDIS_MEMORY_STORE_ID,
-        ) as agent_memory:
-            results = agent_memory.search_long_term_memory(request={"text": query_text})
-            matched_texts = []
-            if results and hasattr(results, "memories") and results.memories:
-                for mem in results.memories:
-                    # Inspect both dictionary and object formats
-                    if hasattr(mem, "text") and mem.text:
-                        matched_texts.append(mem.text)
-                    elif isinstance(mem, dict) and "text" in mem:
-                        matched_texts.append(mem["text"])
-            return matched_texts
-    except Exception as e:
-        logger.warning(f"Semantic search failed on Redis Agent Memory: {e}")
-        return []
 
 
 # ---- Cleanup ----

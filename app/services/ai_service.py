@@ -7,6 +7,7 @@ Supports dynamic prompt enrichment via the self-learning system.
 """
 import asyncio
 import logging
+import re as _re
 from typing import List, Dict, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -27,6 +28,21 @@ client = AsyncOpenAI(
 import re
 from datetime import datetime, timedelta
 from app.services import website_api
+
+
+def _normalize_query(query: str) -> str:
+    """
+    Normalize a user query for exact-match Q&A caching.
+    Lowercases, strips punctuation, and collapses whitespace.
+    Returns empty string for very short queries (< 3 chars after normalization).
+    """
+    if not query:
+        return ""
+    q = query.lower().strip()
+    q = _re.sub(r"[?!.,;:'\"\u2018\u2019\u201c\u201d]+", "", q)
+    q = _re.sub(r"\s+", " ", q).strip()
+    return q if len(q) >= 3 else ""
+
 
 def extract_date_from_text(text: str, now: datetime) -> Optional[str]:
     text_lower = text.lower()
@@ -284,27 +300,19 @@ async def generate_response(
         selected_model = settings.AI_MODEL_COMPLEX if is_complex else settings.AI_MODEL_SIMPLE
         logger.info(f"🧠 Query complexity routing: '{newest_query[:40]}' -> {selected_model} (is_complex={is_complex})")
 
+        # ---- Check Redis Q&A Cache for common questions ----
         cache_hit = None
-        if newest_query and settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
-            def search_cache():
-                from langcache import LangCache
-                with LangCache(
-                    server_url=settings.REDIS_LANGCACHE_ENDPOINT,
-                    cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
-                    api_key=settings.REDIS_LANGCACHE_API_KEY,
-                ) as lang_cache:
-                    return lang_cache.search(prompt=newest_query, similarity_threshold=0.95)
-
+        normalized_query = _normalize_query(newest_query)
+        if normalized_query:
             try:
-                search_res = await asyncio.to_thread(search_cache)
-                if search_res and search_res.data:
-                    best_match = search_res.data[0]
-                    # Ensure we do not serve cached transient appointment/escalation tags
-                    if "[APPOINTMENT_COLLECTED]" not in best_match.response and "[ESCALATE]" not in best_match.response:
-                        cache_hit = best_match.response
-                        logger.info(f"⚡ LangCache Hit! Similarity: {best_match.similarity:.4f} for prompt: '{newest_query}'")
+                from app.database.redis import get_redis
+                redis = get_redis()
+                cached_answer = await redis.get(f"qa:{normalized_query}")
+                if cached_answer:
+                    cache_hit = cached_answer
+                    logger.info(f"⚡ Q&A Cache Hit for: '{newest_query[:50]}'")
             except Exception as cache_err:
-                logger.warning(f"LangCache search failed: {cache_err}")
+                logger.warning(f"Q&A cache lookup failed (non-blocking): {cache_err}")
 
         if cache_hit:
             return cache_hit, selected_model
@@ -406,23 +414,24 @@ async def generate_response(
             ai_message = response_message.content
             logger.info(f"AI response generated ({len(ai_message)} chars)")
 
-        # Save to LangCache if it does not contain transient appointment/escalation tags
+        # ---- Save to Redis Q&A Cache (global, for all patients) ----
         if newest_query and ai_message and "[APPOINTMENT_COLLECTED]" not in ai_message and "[ESCALATE]" not in ai_message:
-            if settings.REDIS_LANGCACHE_ENDPOINT and (settings.REDIS_LANGCACHE_ENDPOINT.startswith("http://") or settings.REDIS_LANGCACHE_ENDPOINT.startswith("https://")):
-                def save_cache():
+            normalized_q = _normalize_query(newest_query)
+            if normalized_q:
+                async def _save_qa_cache():
                     try:
-                        from langcache import LangCache
-                        with LangCache(
-                            server_url=settings.REDIS_LANGCACHE_ENDPOINT,
-                            cache_id=settings.REDIS_LANGCACHE_CACHE_ID,
-                            api_key=settings.REDIS_LANGCACHE_API_KEY,
-                        ) as lang_cache:
-                            lang_cache.set(prompt=newest_query, response=ai_message)
-                            logger.info(f"💾 Saved response to LangCache for prompt: '{newest_query}'")
+                        from app.database.redis import get_redis
+                        redis = get_redis()
+                        await redis.set(
+                            f"qa:{normalized_q}",
+                            ai_message,
+                            ex=settings.REDIS_QA_CACHE_TTL,
+                        )
+                        logger.info(f"💾 Saved Q&A to Redis cache: '{newest_query[:50]}'")
                     except Exception as cache_err:
-                        logger.warning(f"Failed to save response to LangCache in background: {cache_err}")
+                        logger.warning(f"Failed to save Q&A to Redis cache: {cache_err}")
 
-                asyncio.create_task(asyncio.to_thread(save_cache))
+                asyncio.create_task(_save_qa_cache())
 
         return ai_message, selected_model
 
